@@ -1,6 +1,8 @@
 package com.beepsterr.betterkeepinventory.Library;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.Library.Versions.VersionChannel;
+import org.bstats.charts.SimplePie;
 import org.bstats.charts.SingleLineChart;
 import org.bstats.bukkit.Metrics;
 
@@ -13,9 +15,7 @@ public class MetricContainer {
 
     Metrics metrics;
     public MetricContainer(){
-        // bStats reporting is best-effort: if it can't initialize (e.g. the class
-        // isn't relocated yet under tests, or bStats is disabled), keep the plugin
-        // and the in-memory counters working instead of failing onEnable.
+
         try {
             metrics = new Metrics(BetterKeepInventory.getInstance(), 11596);
 
@@ -36,9 +36,38 @@ public class MetricContainer {
                     return amount;
                 }
             }));
+
+            metrics.addCustomChart(new SimplePie("version_checker_channel", new Callable<String>() {
+                @Override
+                public String call() throws Exception {
+                    Config config = Config.getInstance();
+                    if (config == null) {
+                        return null;
+                    }
+                    VersionChannel channel = config.getNotifyChannel();
+                    return channel == null ? null : channel.name().toLowerCase();
+                }
+            }));
+
+            metrics.addCustomChart(new SimplePie("rules_count", new Callable<String>() {
+                @Override
+                public String call() throws Exception {
+                    Config config = Config.getInstance();
+                    return config == null ? null : ruleCountScale(config.countRules());
+                }
+            }));
         } catch (Throwable t) {
             BetterKeepInventory.getInstance().getLogger().warning("bStats metrics disabled: " + t.getMessage());
         }
 
+    }
+
+    static String ruleCountScale(int count) {
+        if (count <= 0)  return "None";
+        if (count == 1)  return "Single";
+        if (count <= 3)  return "Light";
+        if (count <= 9)  return "Medium";
+        if (count <= 20) return "Heavy";
+        return "Extreme";
     }
 }

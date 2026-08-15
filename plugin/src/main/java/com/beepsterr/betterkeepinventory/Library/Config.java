@@ -119,6 +119,24 @@ public class Config {
         return notifyChannel;
     }
 
+    public int countRules() {
+        return countRules(this.rawConfig.getConfigurationSection("rules"));
+    }
+
+    static int countRules(ConfigurationSection section) {
+        if (section == null) {
+            return 0;
+        }
+        int count = 0;
+        for (String key : section.getKeys(false)) {
+            ConfigurationSection rule = section.getConfigurationSection(key);
+            if (rule == null) continue;
+            count++;
+            count += countRules(rule.getConfigurationSection("children"));
+        }
+        return count;
+    }
+
     public String getMessage(String key, Map<String, String> replacements) {
         if(rawMessages == null){
             BetterKeepInventory.getInstance().getLogger().warning("Messages not loaded?? Check if messages.yml exists.");
