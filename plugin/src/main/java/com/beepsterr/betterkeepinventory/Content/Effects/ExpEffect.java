@@ -81,9 +81,12 @@ public class ExpEffect implements Effect {
 
                 plugin.debug(ply, "dropping " + expToDrop + " experience points.");
 
-                ExperienceOrb orb = ply.getWorld().spawn(ply.getLocation(), ExperienceOrb.class);
-                orb.setExperience((int) Math.round(expToDrop));
-                plugin.config.sendMessage(ply, "effects.exp_dropped", replacements);
+                int points = Math.round(expToDrop);
+                if (points > 0) {
+                    ExperienceOrb orb = ply.getWorld().spawn(ply.getLocation(), ExperienceOrb.class);
+                    orb.setExperience(points);
+                    plugin.config.sendMessage(ply, "effects.exp_dropped", replacements);
+                }
             }
         }
     }

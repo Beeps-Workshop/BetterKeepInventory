@@ -125,4 +125,16 @@ class ExpEffectTest {
         assertEquals(0, player.getLevel());
         assertFalse(orbsInWorld().iterator().hasNext(), "no orb should be spawned when there is nothing to drop");
     }
+
+    @Test
+    void dropOfAnEmptyLevelSpawnsNoOrb() {
+        player.setLevel(0);
+        player.setExp(0);
+        // SIMPLE still wants a level gone even though the player has none, so the effect reaches the
+        // DROP branch with nothing to hand out. An orb worth 0 would linger in the world forever.
+        effect("SIMPLE", "DROP", 1, 1).onDeath(player, null, new NoopLogger());
+
+        assertEquals(0, player.getLevel());
+        assertFalse(orbsInWorld().iterator().hasNext(), "an empty drop should not spawn a 0 experience orb");
+    }
 }
