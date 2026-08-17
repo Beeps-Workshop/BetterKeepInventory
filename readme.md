@@ -17,7 +17,7 @@ BetterKeepInventory supports the latest 3 major Minecraft versions, and is compi
 |-------------------|------------------------------------------------------------------------|--------------|
 | 1.16 and below    | [1.3](https://modrinth.com/plugin/betterkeepinventory/version/1.3)     | 11           |
 | 1.17, 1.18        | [1.6.2](https://modrinth.com/plugin/betterkeepinventory/version/1.6.2) | 16           |
-| 1.19-1.20         | [2.2.0](https://modrinth.com/plugin/betterkeepinventory/version/1.6.2) | 17           |
+| 1.19-1.20         | [2.2.0](https://modrinth.com/plugin/betterkeepinventory/version/2.2.0) | 17           |
 | 1.21+             | [Latest](https://modrinth.com/plugin/betterkeepinventory/versions)     | 21           |
 
 > [!NOTE]  
