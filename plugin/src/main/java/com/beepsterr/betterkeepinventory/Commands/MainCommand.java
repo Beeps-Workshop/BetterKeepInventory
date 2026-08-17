@@ -364,7 +364,6 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
     }
 
-    // TODO: implement new permissions
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (!sender.hasPermission("betterkeepinventory.command.help")) return Collections.emptyList();

@@ -35,9 +35,7 @@ permissions:
       betterkeepinventory.command.registry: true
       betterkeepinventory.version: true
       betterkeepinventory.version.notify: true
-      betterkeepinventory.reload: true
-      betterkeepinventory.command.debug.verbose: true
-      betterkeepinventory.command.debug.upload: true
+      betterkeepinventory.command.debug: true
 
   betterkeepinventory.version:
     description: Able to view the plugins version in the main command
@@ -57,6 +55,21 @@ permissions:
 
   betterkeepinventory.command.reload:
     description: Reload the plugin config
+    default: op
+
+  betterkeepinventory.command.debug:
+    description: Access the plugins debug commands
+    default: op
+    children:
+      betterkeepinventory.command.debug.verbose: true
+      betterkeepinventory.command.debug.upload: true
+
+  betterkeepinventory.command.debug.verbose:
+    description: Toggle verbose debug output in chat
+    default: op
+
+  betterkeepinventory.command.debug.upload:
+    description: Upload a debug report
     default: op
 
 commands:
