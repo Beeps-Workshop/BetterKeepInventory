@@ -3,7 +3,6 @@ package com.beepsterr.betterkeepinventory.Content.Effects;
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.api.Effect;
 import com.beepsterr.betterkeepinventory.api.LoggerInterface;
-import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -34,7 +33,7 @@ public class HungerEffect implements Effect {
 
     @Override
     public void onRespawn(Player ply, PlayerRespawnEvent event, LoggerInterface logger) {
-        Bukkit.getScheduler().runTaskLater(BetterKeepInventory.getInstance(), () -> {
+        BetterKeepInventory.getScheduler().getScheduler().runAtEntityLater(ply, () -> {
             Integer saved = hungerMap.remove(ply.getUniqueId());
             if (saved != null) {
                 ply.setFoodLevel(saved);
