@@ -2,6 +2,7 @@ package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -57,7 +58,7 @@ class KickEffectTest {
     void kicksPlayerOnDeathAfterOneTick() {
         assertTrue(player.isOnline(), "player should start online");
 
-        effect("Bye!").onDeath(player, null, new NoopLogger());
+        effect("Bye!").onDeath(TestContexts.death(player));
 
         // Kick is delayed by 1 tick, so nothing happens until the scheduler runs.
         assertTrue(player.isOnline(), "player should still be online before the delayed task runs");
@@ -75,7 +76,7 @@ class KickEffectTest {
         KickCountListener listener = new KickCountListener();
         server.getPluginManager().registerEvents(listener, plugin);
 
-        effect("You died, get out!").onDeath(player, null, new NoopLogger());
+        effect("You died, get out!").onDeath(TestContexts.death(player));
 
         assertEquals(0, listener.count, "no kick event should fire before the delayed task runs");
         server.getScheduler().performTicks(1);
@@ -87,7 +88,7 @@ class KickEffectTest {
     void kicksWithDefaultMessageConfigWithoutError() {
         // With no "message" key the effect falls back to its default; it should still
         // construct and kick cleanly.
-        effect(null).onDeath(player, null, new NoopLogger());
+        effect(null).onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(1);
 
         assertFalse(player.isOnline(), "player should be kicked even when no message is configured");

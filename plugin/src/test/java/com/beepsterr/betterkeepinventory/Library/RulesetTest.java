@@ -4,6 +4,7 @@ import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
 import com.beepsterr.betterkeepinventory.api.Condition;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.configuration.MemoryConfiguration;
@@ -74,7 +75,7 @@ class RulesetTest {
 
     private void triggerAll(Ruleset ruleset) {
         for (ConfigRule rule : ruleset.rules()) {
-            rule.trigger(player, deathEvent(), null, new NoopLogger());
+            rule.trigger(TestContexts.death(player, deathEvent()));
         }
     }
 
@@ -190,7 +191,7 @@ class RulesetTest {
         BetterKeepInventoryAPI api = Bukkit.getServicesManager().load(BetterKeepInventoryAPI.class);
         Plugin addon = MockBukkit.createMockPlugin("LateAddon");
         api.conditionRegistry().register(addon, "late_addon_condition", section -> (Condition)
-                (p, deathEvent, respawnEvent, logger) -> false);
+                deathContext -> false);
 
         ruleset.invalidate();
 

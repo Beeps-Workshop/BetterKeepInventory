@@ -5,12 +5,11 @@ import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
 import com.beepsterr.betterkeepinventory.api.Condition;
 import com.beepsterr.betterkeepinventory.api.Effect;
 import com.beepsterr.betterkeepinventory.api.Exceptions.ConditionParseError;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
 import com.beepsterr.betterkeepinventory.api.LoggerInterface;
+import com.beepsterr.betterkeepinventory.api.Phase;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -137,42 +136,37 @@ public class ConfigRule {
 
 
     /**
-     * @param logger the log for the death currently being processed. Passed in rather than held
-     *               on the rule, because one rule instance now serves every death.
+     * Evaluate this rule against one death.
+     * <p>
+     * The context carries the log for the death being processed, rather than the rule holding
+     * one: a single rule instance now serves every death.
      */
-    public void trigger(Player ply, PlayerDeathEvent deathEvent, PlayerRespawnEvent respawnEvent, LoggerInterface logger) {
+    public void trigger(DeathContext ctx) {
 
+        LoggerInterface logger = ctx.logger();
         logger.child("Executing Rule '" + name + "'");
-        BetterKeepInventory plugin = BetterKeepInventory.getInstance();
 
         if (!isEnabled()) {
             logger.log("Skipped execution of rule '" + name + "' (enabled: false)");
+            logger.parent();
             return;
         }
 
-        // log all conditions that are to be checked
-
-        if (conditions.isEmpty() || conditions.stream().allMatch(c -> c.check(ply, deathEvent, respawnEvent, logger))) {
+        if (conditions.isEmpty() || conditions.stream().allMatch(c -> c.check(ctx))) {
             logger.log("All conditions met for rule '" + name + "'");
 
-            if (deathEvent != null) {
-                for (Effect effect : effects) {
-                    logger.child("Effect: " + effect.getClass());
-                    effect.onDeath(ply, deathEvent, logger);
-                    logger.parent();
+            for (Effect effect : effects) {
+                logger.child("Effect: " + effect.getClass());
+                if (ctx.phase() == Phase.DEATH) {
+                    effect.onDeath(ctx);
+                } else {
+                    effect.onRespawn(ctx);
                 }
-            }
-
-            if (respawnEvent != null) {
-                for (Effect effect : effects) {
-                    logger.child("Effect: " + effect.getClass());
-                    effect.onRespawn(ply, respawnEvent, logger);
-                    logger.parent();
-                }
+                logger.parent();
             }
 
             for (ConfigRule child : children) {
-                child.trigger(ply, deathEvent, respawnEvent, logger);
+                child.trigger(ctx);
             }
 
         } else {

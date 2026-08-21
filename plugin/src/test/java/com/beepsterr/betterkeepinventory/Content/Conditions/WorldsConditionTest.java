@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.Content.Conditions;
 
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,27 +45,27 @@ class WorldsConditionTest {
 
     @Test
     void exactWorldMatches() {
-        assertTrue(condition("world").check(playerInWorld("world"), null, null, new NoopLogger()));
+        assertTrue(condition("world").check(TestContexts.death(playerInWorld("world"))));
     }
 
     @Test
     void wildcardMatches() {
-        assertTrue(condition("world_*").check(playerInWorld("world_nether"), null, null, new NoopLogger()));
+        assertTrue(condition("world_*").check(TestContexts.death(playerInWorld("world_nether"))));
     }
 
     @Test
     void differentWorldDoesNotMatch() {
-        assertFalse(condition("nether").check(playerInWorld("world"), null, null, new NoopLogger()));
+        assertFalse(condition("nether").check(TestContexts.death(playerInWorld("world"))));
     }
 
     @Test
     void negationExcludesNamedWorld() {
-        assertFalse(condition("!world").check(playerInWorld("world"), null, null, new NoopLogger()));
-        assertTrue(condition("!world").check(playerInWorld("nether"), null, null, new NoopLogger()));
+        assertFalse(condition("!world").check(TestContexts.death(playerInWorld("world"))));
+        assertTrue(condition("!world").check(TestContexts.death(playerInWorld("nether"))));
     }
 
     @Test
     void emptyNodeListNeverMatches() {
-        assertFalse(condition().check(playerInWorld("world"), null, null, new NoopLogger()));
+        assertFalse(condition().check(TestContexts.death(playerInWorld("world"))));
     }
 }

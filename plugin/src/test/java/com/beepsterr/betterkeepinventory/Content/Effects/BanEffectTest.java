@@ -2,6 +2,7 @@ package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.BanEntry;
 import org.bukkit.BanList;
 import org.bukkit.Bukkit;
@@ -69,7 +70,7 @@ class BanEffectTest {
     void bansAndKicksPlayerOnDeathAfterOneTick() {
         assertFalse(banList().isBanned(player.getName()), "player should not be banned before death");
 
-        effect("Banned for dying", "5m").onDeath(player, null, new NoopLogger());
+        effect("Banned for dying", "5m").onDeath(TestContexts.death(player));
 
         // Ban + kick are delayed by one tick.
         assertFalse(banList().isBanned(player.getName()), "player should not be banned before the delayed task runs");
@@ -83,7 +84,7 @@ class BanEffectTest {
 
     @Test
     void banEntryRecordsConfiguredReasonAndSource() {
-        effect("No respawns for you", "5m").onDeath(player, null, new NoopLogger());
+        effect("No respawns for you", "5m").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(1);
 
         BanEntry<?> entry = banList().getBanEntry(player.getName());
@@ -95,7 +96,7 @@ class BanEffectTest {
     @Test
     void defaultDurationIsFiveMinutes() {
         // No "duration" configured -> defaults to "5m".
-        effect("dead", null).onDeath(player, null, new NoopLogger());
+        effect("dead", null).onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(1);
 
         assertExpiryApprox(Duration.ofMinutes(5));
@@ -103,7 +104,7 @@ class BanEffectTest {
 
     @Test
     void secondsSuffixIsParsed() {
-        effect("dead", "30s").onDeath(player, null, new NoopLogger());
+        effect("dead", "30s").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(1);
 
         assertExpiryApprox(Duration.ofSeconds(30));
@@ -111,7 +112,7 @@ class BanEffectTest {
 
     @Test
     void minutesSuffixIsParsed() {
-        effect("dead", "15m").onDeath(player, null, new NoopLogger());
+        effect("dead", "15m").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(1);
 
         assertExpiryApprox(Duration.ofMinutes(15));
@@ -119,7 +120,7 @@ class BanEffectTest {
 
     @Test
     void hoursSuffixIsParsed() {
-        effect("dead", "2h").onDeath(player, null, new NoopLogger());
+        effect("dead", "2h").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(1);
 
         assertExpiryApprox(Duration.ofHours(2));
@@ -127,7 +128,7 @@ class BanEffectTest {
 
     @Test
     void daysSuffixIsParsed() {
-        effect("dead", "3d").onDeath(player, null, new NoopLogger());
+        effect("dead", "3d").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(1);
 
         assertExpiryApprox(Duration.ofDays(3));
@@ -135,7 +136,7 @@ class BanEffectTest {
 
     @Test
     void bareNumberDefaultsToMinutes() {
-        effect("dead", "45").onDeath(player, null, new NoopLogger());
+        effect("dead", "45").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(1);
 
         assertExpiryApprox(Duration.ofMinutes(45));
@@ -149,7 +150,7 @@ class BanEffectTest {
         // doesn't return, so "forever" falls through to Long.parseLong("forever") and throws.
         // This asserts the documented behaviour and must stay failing until BanEffect is fixed;
         // do not weaken it to match the bug.
-        effect("dead", "forever").onDeath(player, null, new NoopLogger());
+        effect("dead", "forever").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(1);
 
         BanEntry<?> entry = banList().getBanEntry(player.getName());

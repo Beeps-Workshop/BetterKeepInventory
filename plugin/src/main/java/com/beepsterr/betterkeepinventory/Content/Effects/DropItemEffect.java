@@ -1,16 +1,14 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
 import com.beepsterr.betterkeepinventory.api.Utilities;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import com.beepsterr.betterkeepinventory.api.Types.MaterialList;
 import com.beepsterr.betterkeepinventory.api.Effect;
 import com.beepsterr.betterkeepinventory.api.Types.SlotType;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 import java.util.HashMap;
 import java.util.List;
@@ -46,12 +44,14 @@ public class DropItemEffect implements Effect {
     }
 
     @Override
-    public void onRespawn(Player ply, PlayerRespawnEvent event, LoggerInterface logger) {
+    public void onRespawn(DeathContext ctx) {
         // Nothing on respawn
     }
 
     @Override
-    public void onDeath(Player ply, PlayerDeathEvent event, LoggerInterface logger) {
+    public void onDeath(DeathContext ctx) {
+        Player ply = ctx.player();
+
         BetterKeepInventory plugin = BetterKeepInventory.getInstance();
         Random rng = plugin.rng;
 

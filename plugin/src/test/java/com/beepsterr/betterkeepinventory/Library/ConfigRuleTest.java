@@ -2,6 +2,7 @@ package com.beepsterr.betterkeepinventory.Library;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Material;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.damage.DamageSource;
@@ -107,7 +108,7 @@ class ConfigRuleTest {
         MemoryConfiguration cfg = dropRule(true);
         cfg.set("conditions.cause.nodes", List.of("LAVA", "FIRE"));
 
-        rule(cfg).trigger(player, deathEvent(), null, new NoopLogger());
+        rule(cfg).trigger(TestContexts.death(player, deathEvent()));
 
         assertEffectsFired();
     }
@@ -117,7 +118,7 @@ class ConfigRuleTest {
         fillInventory();
 
         // No conditions section at all -> conditions list is empty -> effects always run.
-        rule(dropRule(true)).trigger(player, deathEvent(), null, new NoopLogger());
+        rule(dropRule(true)).trigger(TestContexts.death(player, deathEvent()));
 
         assertEffectsFired();
     }
@@ -130,7 +131,7 @@ class ConfigRuleTest {
         MemoryConfiguration cfg = dropRule(true);
         cfg.set("conditions.cause.nodes", List.of("LAVA"));
 
-        rule(cfg).trigger(player, deathEvent(), null, new NoopLogger());
+        rule(cfg).trigger(TestContexts.death(player, deathEvent()));
 
         assertEffectsDidNotFire();
     }
@@ -145,7 +146,7 @@ class ConfigRuleTest {
 
         ConfigRule r = rule(cfg);
         assertFalse(r.isEnabled(), "rule should report itself disabled");
-        r.trigger(player, deathEvent(), null, new NoopLogger());
+        r.trigger(TestContexts.death(player, deathEvent()));
 
         assertEffectsDidNotFire();
     }
@@ -159,7 +160,7 @@ class ConfigRuleTest {
         cfg.set("conditions.cause.nodes", List.of("LAVA"));
         cfg.set("conditions.worlds.nodes", List.of("some_other_world")); // ...but world does not
 
-        rule(cfg).trigger(player, deathEvent(), null, new NoopLogger());
+        rule(cfg).trigger(TestContexts.death(player, deathEvent()));
 
         assertEffectsDidNotFire();
     }
@@ -173,7 +174,7 @@ class ConfigRuleTest {
         cfg.set("conditions.cause.nodes", List.of("LAVA"));
         cfg.set("conditions.worlds.nodes", List.of("world")); // player IS in "world"
 
-        rule(cfg).trigger(player, deathEvent(), null, new NoopLogger());
+        rule(cfg).trigger(TestContexts.death(player, deathEvent()));
 
         assertEffectsFired();
     }

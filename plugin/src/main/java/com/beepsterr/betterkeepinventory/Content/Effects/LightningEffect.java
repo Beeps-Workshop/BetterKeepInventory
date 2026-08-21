@@ -1,13 +1,11 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
 import com.beepsterr.betterkeepinventory.api.Effect;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,7 +34,9 @@ public class LightningEffect implements Effect {
     }
 
     @Override
-    public void onDeath(Player ply, PlayerDeathEvent event, LoggerInterface logger) {
+    public void onDeath(DeathContext ctx) {
+        Player ply = ctx.player();
+
         deathLocations.put(ply.getUniqueId(), ply.getLocation().clone());
 
         if (onDeath) {
@@ -45,7 +45,9 @@ public class LightningEffect implements Effect {
     }
 
     @Override
-    public void onRespawn(Player ply, PlayerRespawnEvent event, LoggerInterface logger) {
+    public void onRespawn(DeathContext ctx) {
+        Player ply = ctx.player();
+
         deathLocations.remove(ply.getUniqueId());
 
         if (onRespawn) {

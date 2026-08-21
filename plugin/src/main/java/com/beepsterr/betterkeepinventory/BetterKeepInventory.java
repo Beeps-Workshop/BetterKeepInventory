@@ -18,6 +18,7 @@ import com.beepsterr.betterkeepinventory.Library.NestedLogBuilder;
 import com.beepsterr.betterkeepinventory.Library.Versions.Version;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChannel;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChecker;
+import com.beepsterr.betterkeepinventory.Library.PendingDeaths;
 import com.beepsterr.betterkeepinventory.Registries.PluginConditionRegistry;
 import com.beepsterr.betterkeepinventory.Registries.PluginEffectRegistry;
 import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
@@ -48,6 +49,9 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
     public Debugger debugger = new Debugger();
 
     // Plugin Registries
+    /** Deaths waiting for their respawn phase. */
+    public final PendingDeaths pendingDeaths = new PendingDeaths();
+
     private final PluginConditionRegistry conditionRegistry = new PluginConditionRegistry(this);
     private final PluginEffectRegistry effectRegistry = new PluginEffectRegistry(this);
 

@@ -1,8 +1,8 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
 import com.beepsterr.betterkeepinventory.api.Utilities;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import com.beepsterr.betterkeepinventory.api.Types.MaterialList;
 import com.beepsterr.betterkeepinventory.api.Types.SlotType;
 import com.beepsterr.betterkeepinventory.api.Effect;
@@ -11,8 +11,6 @@ import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 
@@ -52,12 +50,14 @@ public class DamageItemEffect implements Effect {
     }
 
     @Override
-    public void onRespawn(Player player, PlayerRespawnEvent event, LoggerInterface logger) {
+    public void onRespawn(DeathContext ctx) {
         // This effect doesn't do anything on respawn (yet)
     }
 
     @Override
-    public void onDeath(Player ply, PlayerDeathEvent event, LoggerInterface logger) {
+    public void onDeath(DeathContext ctx) {
+        Player ply = ctx.player();
+
         BetterKeepInventory plugin = BetterKeepInventory.getInstance();
         Random rng = plugin.rng;
 

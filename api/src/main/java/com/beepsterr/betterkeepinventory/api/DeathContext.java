@@ -34,7 +34,7 @@ import java.util.UUID;
  * <h2>Effects are shared</h2>
  * The rule tree is parsed once, not per death, so a single {@code Effect} instance serves
  * every death concurrently. Treat effect fields as immutable configuration and put anything
- * per-death in {@link #setScratch}.
+ * per-death in {@link #setExtraData}.
  *
  * @see Phase
  */
@@ -48,7 +48,7 @@ public interface DeathContext {
      * The player's UUID, which is what identifies them across a disconnect -- the
      * {@link Player} object is replaced when they rejoin.
      */
-    UUID playerId();
+    UUID playerUuid();
 
     Phase phase();
 
@@ -77,15 +77,6 @@ public interface DeathContext {
      */
     Entity killer();
 
-    /**
-     * The player's experience level at the moment of death, before any effect ran.
-     * <p>
-     * Vanilla decides how much experience a death drops from this value, so it is captured
-     * before the rules get a turn. Reading the level back afterwards would instead measure
-     * whatever an experience effect left behind.
-     */
-    int levelAtDeath();
-
     // ------------------------------------------------------------------ the buckets
 
     /**
@@ -95,7 +86,7 @@ public interface DeathContext {
      * Useful for working out what a death actually cost, without having to thread state
      * through the effects that caused it.
      */
-    List<ItemStack> snapshot();
+    List<ItemStack> originalInventory();
 
     /**
      * The working inventory -- what the player ends up with. Slot-indexed to match
@@ -114,15 +105,43 @@ public interface DeathContext {
     List<ItemStack> drops();
 
     /**
-     * Experience levels the player keeps.
+     * Experience levels as they were at the moment of death, before any effect ran.
+     * <p>
+     * Vanilla decides how much experience a death drops from this value, so it is captured
+     * before the rules get a turn. Reading {@link #levels()} back afterwards would instead
+     * measure whatever an experience effect left behind.
      */
-    int keptLevels();
-
-    void setKeptLevels(int levels);
+    int originalLevels();
 
     /**
-     * Raw experience points dropped on the ground. Spawned as a single orb, and only if
-     * greater than zero.
+     * Progress toward the next level as it was at the moment of death, from 0.0 to 1.0.
+     */
+    float originalProgress();
+
+    /**
+     * The experience levels the player ends up with. The counterpart of {@link #inventory()}.
+     */
+    int levels();
+
+    void setLevels(int levels);
+
+    /**
+     * Progress toward the next level the player ends up with, from 0.0 to 1.0.
+     * <p>
+     * Tracked separately from {@link #levels()} because that is how the player stores it, so
+     * writing it back is exact. An effect that reduces levels should decide deliberately what
+     * happens to the partial level rather than dropping it by accident.
+     */
+    float progress();
+
+    void setProgress(float progress);
+
+    /**
+     * Raw experience points dropped on the ground. The counterpart of {@link #drops()}.
+     * Spawned as a single orb, and only if greater than zero.
+     * <p>
+     * Points rather than levels because that is the unit orbs are measured in. This is the one
+     * place the level/point conversion has to happen, and the only place rounding is unavoidable.
      */
     int droppedExp();
 
@@ -149,7 +168,7 @@ public interface DeathContext {
      */
     PlayerRespawnEvent respawnEvent();
 
-    // ------------------------------------------------------------------ scratch state
+    // ------------------------------------------------------------------ extra data
 
     /**
      * Read a value stashed earlier in this same death.
@@ -161,13 +180,13 @@ public interface DeathContext {
      *
      * @return the stored value, or null if absent or of a different type.
      */
-    <T> T getScratch(String key, Class<T> type);
+    <T> T getExtraData(String key, Class<T> type);
 
     /**
      * Stash a value for later in this same death. In-memory only: it does not survive a
      * server restart.
      */
-    void setScratch(String key, Object value);
+    void setExtraData(String key, Object value);
 
     // ------------------------------------------------------------------ logging
 

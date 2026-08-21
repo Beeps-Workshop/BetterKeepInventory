@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.Content.Conditions;
 
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.junit.jupiter.api.AfterEach;
@@ -48,26 +49,26 @@ class PermissionsConditionTest {
 
     @Test
     void matchesWhenPlayerHasPermission() {
-        assertTrue(condition("bki.vip").check(playerWith("bki.vip"), null, null, new NoopLogger()));
+        assertTrue(condition("bki.vip").check(TestContexts.death(playerWith("bki.vip"))));
     }
 
     @Test
     void doesNotMatchWhenPlayerLacksPermission() {
-        assertFalse(condition("bki.vip").check(playerWith(), null, null, new NoopLogger()));
+        assertFalse(condition("bki.vip").check(TestContexts.death(playerWith())));
     }
 
     @Test
     void negatedNodeMatchesWhenPlayerLacksPermission() {
-        assertTrue(condition("!bki.vip").check(playerWith(), null, null, new NoopLogger()));
+        assertTrue(condition("!bki.vip").check(TestContexts.death(playerWith())));
     }
 
     @Test
     void negatedNodeDoesNotMatchWhenPlayerHasPermission() {
-        assertFalse(condition("!bki.vip").check(playerWith("bki.vip"), null, null, new NoopLogger()));
+        assertFalse(condition("!bki.vip").check(TestContexts.death(playerWith("bki.vip"))));
     }
 
     @Test
     void emptyNodeListNeverMatches() {
-        assertFalse(condition().check(playerWith("bki.vip"), null, null, new NoopLogger()));
+        assertFalse(condition().check(TestContexts.death(playerWith("bki.vip"))));
     }
 }

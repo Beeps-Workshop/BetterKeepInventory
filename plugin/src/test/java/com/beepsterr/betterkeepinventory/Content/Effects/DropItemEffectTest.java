@@ -2,6 +2,7 @@ package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Material;
 import org.bukkit.entity.Item;
 import org.bukkit.inventory.ItemStack;
@@ -55,7 +56,7 @@ class DropItemEffectTest {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND, 5));
         player.getInventory().addItem(new ItemStack(Material.DIRT, 64));
 
-        effect("ALL").onDeath(player, null, new NoopLogger());
+        effect("ALL").onDeath(TestContexts.death(player));
 
         assertTrue(player.getInventory().isEmpty(), "inventory should be emptied by mode ALL");
         assertEquals(2, world.getEntitiesByClass(Item.class).size(), "both stacks should be dropped as ground items");
@@ -69,7 +70,7 @@ class DropItemEffectTest {
         MemoryConfiguration cfg = new MemoryConfiguration();
         cfg.set("mode", "ALL");
         cfg.set("filters.items", java.util.List.of("DIRT"));
-        new DropItemEffect(cfg).onDeath(player, null, new NoopLogger());
+        new DropItemEffect(cfg).onDeath(TestContexts.death(player));
 
         assertTrue(player.getInventory().contains(Material.DIAMOND), "diamonds should be kept (not in filter)");
         assertFalse(player.getInventory().contains(Material.DIRT), "dirt should be dropped (matches filter)");

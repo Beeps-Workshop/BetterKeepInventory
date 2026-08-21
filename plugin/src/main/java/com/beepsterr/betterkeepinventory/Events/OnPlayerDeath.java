@@ -2,6 +2,7 @@ package com.beepsterr.betterkeepinventory.Events;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Library.ConfigRule;
+import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
 import com.beepsterr.betterkeepinventory.Library.NestedLogBuilder;
 import org.bukkit.GameRule;
 import org.bukkit.entity.Player;
@@ -12,7 +13,6 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 
-import java.io.IOException;
 import java.util.logging.Level;
 
 public class OnPlayerDeath  implements Listener {
@@ -39,6 +39,10 @@ public class OnPlayerDeath  implements Listener {
         nlb.cont("Behavior: " + plugin.config.getDefaultBehavior().toString());
         nlb.spacer();
 
+        // Captured before anything touches the player, and kept until the respawn phase claims it.
+        DeathContextImpl ctx = new DeathContextImpl(ply, event, plugin.config.getDefaultBehavior(), nlb);
+        plugin.pendingDeaths.put(ctx);
+
         // The server only collects death loot when it intends to drop it. On a world where the
         // keepInventory gamerule is on it collects nothing, so event.getDrops() arrives EMPTY.
         // Turning keepInventory off from under it would then have the server clear the inventory
@@ -53,7 +57,10 @@ public class OnPlayerDeath  implements Listener {
         // exp effect left behind, and make the payout depend on the world's gamerule.
         int levelAtDeath = ply.getLevel();
 
-        // Set base level of keepinv
+        // TODO(3.0): this whole block, and collectDrops() below, are replaced by the application
+        // step -- one place that writes ctx.inventory() back to the player and distributes
+        // ctx.drops(). Until the item-moving effects are ported onto the buckets they still
+        // mutate the player directly, so the buckets on the context are informational for now.
         switch(plugin.config.getDefaultBehavior()){
             case KEEP:
                 // these are needed to prevent dupes!!
@@ -78,7 +85,7 @@ public class OnPlayerDeath  implements Listener {
 
         // Time to process the top level rules
         for(ConfigRule rule : plugin.config.getRules()){
-            rule.trigger(ply, event, null, nlb);
+            rule.trigger(ctx);
         }
 
         if(collectDropsOurselves){
