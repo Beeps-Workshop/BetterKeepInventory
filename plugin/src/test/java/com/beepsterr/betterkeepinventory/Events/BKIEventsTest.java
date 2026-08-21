@@ -57,7 +57,7 @@ class BKIEventsTest {
 
         // DROP so the drop bucket starts full and a listener has something to take.
         YamlConfiguration cfg = new YamlConfiguration();
-        cfg.set("version", "2.3.0");
+        cfg.set("version", "3.0.0");
         cfg.set("default_behavior", "DROP");
         plugin.config = new Config(cfg, null);
     }

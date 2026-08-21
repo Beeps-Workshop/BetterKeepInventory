@@ -70,7 +70,7 @@ class OnPlayerDeathTest {
      */
     private void behavior(String value) throws UnloadableConfiguration {
         YamlConfiguration cfg = new YamlConfiguration();
-        cfg.set("version", "2.3.0");
+        cfg.set("version", "3.0.0");
         cfg.set("default_behavior", value);
         plugin.config = new Config(cfg, null);
     }
@@ -81,7 +81,7 @@ class OnPlayerDeathTest {
      */
     private void behaviorWithExpRule(String value, int levelsToLose) throws UnloadableConfiguration {
         YamlConfiguration cfg = new YamlConfiguration();
-        cfg.set("version", "2.3.0");
+        cfg.set("version", "3.0.0");
         cfg.set("default_behavior", value);
         cfg.set("rules.exp_rule.name", "exp");
         cfg.set("rules.exp_rule.enabled", true);
