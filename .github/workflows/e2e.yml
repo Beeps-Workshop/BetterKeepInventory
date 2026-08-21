@@ -36,7 +36,8 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          # Read from e2e/.nvmrc so a local `nvm use` and CI cannot drift apart.
+          node-version-file: e2e/.nvmrc
           cache: npm
           cache-dependency-path: e2e/package-lock.json
 

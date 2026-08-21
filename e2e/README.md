@@ -31,8 +31,11 @@ assertions survive that; assertions about the drops list would fail for the wron
 Prerequisites:
 
 ```sh
-# Node 20.11 or newer, then, from this directory:
-npm install
+# Node: the version in .nvmrc, which is what CI uses too.
+# With nvm, from this directory:
+nvm use        # installs it first with `nvm install` if you don't have it
+
+npm ci         # `ci` not `install` -- the lockfile pins mineflayer deliberately
 
 # A plugin jar, from the repository root:
 mvn -B package -DskipTests
