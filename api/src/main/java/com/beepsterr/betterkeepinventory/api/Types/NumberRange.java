@@ -1,4 +1,4 @@
-package com.beepsterr.betterkeepinventory.Library;
+package com.beepsterr.betterkeepinventory.api.Types;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

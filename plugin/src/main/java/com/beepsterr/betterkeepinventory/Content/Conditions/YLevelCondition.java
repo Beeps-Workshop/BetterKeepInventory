@@ -1,6 +1,6 @@
 package com.beepsterr.betterkeepinventory.Content.Conditions;
 
-import com.beepsterr.betterkeepinventory.Library.NumberRange;
+import com.beepsterr.betterkeepinventory.api.Types.NumberRange;
 import com.beepsterr.betterkeepinventory.api.Condition;
 import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.configuration.ConfigurationSection;

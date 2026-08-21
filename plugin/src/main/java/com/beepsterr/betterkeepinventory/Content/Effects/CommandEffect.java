@@ -1,7 +1,7 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
-import com.beepsterr.betterkeepinventory.Library.Utilities;
+import com.beepsterr.betterkeepinventory.api.Utilities;
 import com.beepsterr.betterkeepinventory.api.Effect;
 import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.Bukkit;

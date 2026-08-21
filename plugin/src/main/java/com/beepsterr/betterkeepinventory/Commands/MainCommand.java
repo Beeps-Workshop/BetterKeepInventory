@@ -7,6 +7,7 @@ import com.beepsterr.betterkeepinventory.Library.Versions.VersionChannel;
 import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
 import com.beepsterr.betterkeepinventory.Library.Config;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChecker;
+import com.beepsterr.betterkeepinventory.api.Registry;
 import com.beepsterr.betterkeepinventory.api.RegistryEntry;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.ClickEvent;
@@ -186,10 +187,10 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
         switch(args[1].toLowerCase()){
             case "effects":
-                printRegistryEntries(sender, "Registered Effects", api.effectRegistry().getAll());
+                printRegistryEntries(sender, "Registered Effects", api.effectRegistry());
                 break;
             case "conditions":
-                printRegistryEntries(sender, "Registered Conditions", api.conditionRegistry().getAll());
+                printRegistryEntries(sender, "Registered Conditions", api.conditionRegistry());
                 break;
             default:
                 sender.sendMessage(ChatColor.RED + "Unknown registry type: " + args[1]);
@@ -203,12 +204,10 @@ public class MainCommand implements CommandExecutor, TabCompleter {
     public static <T> void printRegistryEntries(
             CommandSender sender,
             String title,
-            Map<String, RegistryEntry<T>> allEntries
+            Registry<T> registry
     ) {
+        Map<String, RegistryEntry<T>> allEntries = registry.getAll();
         sender.sendMessage(ChatColor.GOLD + title + " (" + allEntries.size() + "):");
-
-        // Track printed short keys to avoid duplication
-        Set<String> printedShorts = new HashSet<>();
 
         for (Map.Entry<String, RegistryEntry<T>> entry : allEntries.entrySet()) {
             String fullKey = entry.getKey();
@@ -216,16 +215,17 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             Plugin plugin = regEntry.plugin();
 
             String pluginPrefix = plugin.getName().toLowerCase() + ".";
-            if (!fullKey.startsWith(pluginPrefix)) continue;
+            String shortKey = fullKey.startsWith(pluginPrefix)
+                    ? fullKey.substring(pluginPrefix.length())
+                    : fullKey;
 
-            String shortKey = fullKey.substring(pluginPrefix.length());
-
-            boolean showShort = allEntries.containsKey(shortKey)
-                    && allEntries.get(shortKey).plugin().equals(plugin)
-                    && printedShorts.add(shortKey); // ensure we only show the short key once
+            // Bare keys are resolved rather than stored, so ask the registry which entry this
+            // one currently points at instead of looking for it in the map.
+            RegistryEntry<T> resolved = registry.getFull(shortKey);
+            boolean ownsShortKey = resolved != null && resolved.equals(regEntry);
 
             String display = ChatColor.GREEN + fullKey;
-            if (showShort) {
+            if (ownsShortKey) {
                 display += ChatColor.LIGHT_PURPLE + " (" + shortKey + ")";
             }
 

@@ -48,8 +48,8 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
     public Debugger debugger = new Debugger();
 
     // Plugin Registries
-    private final PluginConditionRegistry conditionRegistry = new PluginConditionRegistry();
-    private final PluginEffectRegistry effectRegistry = new PluginEffectRegistry();
+    private final PluginConditionRegistry conditionRegistry = new PluginConditionRegistry(this);
+    private final PluginEffectRegistry effectRegistry = new PluginEffectRegistry(this);
 
 
     @Override
