@@ -7,25 +7,11 @@ import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
-
-/**
- * Effect that strikes lightning at the death and/or respawn location.
- *
- * Configuration options:
- * - on_death: Strike lightning at death location (default true)
- * - on_respawn: Strike lightning at respawn location (default false)
- * - damage: If true, uses real lightning that deals damage. If false, uses effect-only lightning. (default false)
- */
 public class LightningEffect implements Effect {
 
     private final boolean onDeath;
     private final boolean onRespawn;
     private final boolean damage;
-
-    private static final Map<UUID, Location> deathLocations = new HashMap<>();
 
     public LightningEffect(ConfigurationSection config) {
         this.onDeath = config.getBoolean("on_death", true);
@@ -35,27 +21,22 @@ public class LightningEffect implements Effect {
 
     @Override
     public void onDeath(DeathContext ctx) {
-        Player ply = ctx.player();
-
-        deathLocations.put(ply.getUniqueId(), ply.getLocation().clone());
-
         if (onDeath) {
-            strikeLightning(ply.getLocation());
+            strikeLightning(ctx.deathLocation());
         }
     }
 
     @Override
     public void onRespawn(DeathContext ctx) {
-        Player ply = ctx.player();
-
-        deathLocations.remove(ply.getUniqueId());
-
-        if (onRespawn) {
-            // Delay slightly to ensure player has respawned
-            BetterKeepInventory.getScheduler().getScheduler().runAtEntityLater(ply, () -> {
-                strikeLightning(ply.getLocation());
-            }, 5L);
+        if (!onRespawn) {
+            return;
         }
+
+        Player ply = ctx.player();
+        // Delay slightly to ensure player has respawned
+        BetterKeepInventory.getScheduler().getScheduler().runAtEntityLater(ply, () -> {
+            strikeLightning(ply.getLocation());
+        }, 5L);
     }
 
     private void strikeLightning(Location loc) {

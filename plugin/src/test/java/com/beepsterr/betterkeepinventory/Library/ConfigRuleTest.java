@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.Library;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Material;
@@ -31,9 +32,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@link org.bukkit.configuration.ConfigurationSection} exactly the way
  * {@link Ruleset} builds it in production, then driven through
  * {@link ConfigRule#trigger}. We observe whether a rule's effects fired by using
- * a real {@code drop} effect (mode ALL) whose side effect is emptying the
- * player's inventory into the world — the same effect covered by
- * {@code DropItemEffectTest}.
+ * a real {@code drop} effect (mode ALL). The effect moves items from the context's
+ * kept bucket into its drop bucket rather than touching the player, so each test
+ * applies the context afterwards and then observes the player — the same two steps a
+ * real death performs. Same effect as covered by {@code DropItemEffectTest}.
  *
  * The plugin is loaded via MockBukkit because ConfigRule resolves the
  * condition/effect registries through the BetterKeepInventory API service and
@@ -108,7 +110,11 @@ class ConfigRuleTest {
         MemoryConfiguration cfg = dropRule(true);
         cfg.set("conditions.cause.nodes", List.of("LAVA", "FIRE"));
 
-        rule(cfg).trigger(TestContexts.death(player, deathEvent()));
+        DeathContextImpl ctx = TestContexts.death(player, deathEvent());
+
+        rule(cfg).trigger(ctx);
+
+        TestContexts.apply(ctx);
 
         assertEffectsFired();
     }
@@ -118,7 +124,9 @@ class ConfigRuleTest {
         fillInventory();
 
         // No conditions section at all -> conditions list is empty -> effects always run.
-        rule(dropRule(true)).trigger(TestContexts.death(player, deathEvent()));
+        DeathContextImpl ctx = TestContexts.death(player, deathEvent());
+        rule(dropRule(true)).trigger(ctx);
+        TestContexts.apply(ctx);
 
         assertEffectsFired();
     }
@@ -131,7 +139,11 @@ class ConfigRuleTest {
         MemoryConfiguration cfg = dropRule(true);
         cfg.set("conditions.cause.nodes", List.of("LAVA"));
 
-        rule(cfg).trigger(TestContexts.death(player, deathEvent()));
+        DeathContextImpl ctx = TestContexts.death(player, deathEvent());
+
+        rule(cfg).trigger(ctx);
+
+        TestContexts.apply(ctx);
 
         assertEffectsDidNotFire();
     }
@@ -146,7 +158,9 @@ class ConfigRuleTest {
 
         ConfigRule r = rule(cfg);
         assertFalse(r.isEnabled(), "rule should report itself disabled");
-        r.trigger(TestContexts.death(player, deathEvent()));
+        DeathContextImpl ctx = TestContexts.death(player, deathEvent());
+        r.trigger(ctx);
+        TestContexts.apply(ctx);
 
         assertEffectsDidNotFire();
     }
@@ -160,7 +174,11 @@ class ConfigRuleTest {
         cfg.set("conditions.cause.nodes", List.of("LAVA"));
         cfg.set("conditions.worlds.nodes", List.of("some_other_world")); // ...but world does not
 
-        rule(cfg).trigger(TestContexts.death(player, deathEvent()));
+        DeathContextImpl ctx = TestContexts.death(player, deathEvent());
+
+        rule(cfg).trigger(ctx);
+
+        TestContexts.apply(ctx);
 
         assertEffectsDidNotFire();
     }
@@ -174,7 +192,11 @@ class ConfigRuleTest {
         cfg.set("conditions.cause.nodes", List.of("LAVA"));
         cfg.set("conditions.worlds.nodes", List.of("world")); // player IS in "world"
 
-        rule(cfg).trigger(TestContexts.death(player, deathEvent()));
+        DeathContextImpl ctx = TestContexts.death(player, deathEvent());
+
+        rule(cfg).trigger(ctx);
+
+        TestContexts.apply(ctx);
 
         assertEffectsFired();
     }

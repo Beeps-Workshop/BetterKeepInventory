@@ -73,10 +73,17 @@ class RulesetTest {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND, 5));
     }
 
+    /**
+     * Drive every rule against one shared context, then apply it -- effects move items between
+     * the context's buckets rather than touching the player, so the player only reflects the
+     * outcome once the context has been applied.
+     */
     private void triggerAll(Ruleset ruleset) {
+        DeathContextImpl ctx = TestContexts.death(player, deathEvent());
         for (ConfigRule rule : ruleset.rules()) {
-            rule.trigger(TestContexts.death(player, deathEvent()));
+            rule.trigger(ctx);
         }
+        TestContexts.apply(ctx);
     }
 
     @Test

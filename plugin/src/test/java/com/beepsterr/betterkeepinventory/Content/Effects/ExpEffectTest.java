@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.configuration.MemoryConfiguration;
@@ -52,28 +53,36 @@ class ExpEffectTest {
     @Test
     void allModeDeletesEveryLevel() {
         player.setLevel(30);
-        effect("ALL", "DELETE", 0, 0).onDeath(TestContexts.death(player));
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("ALL", "DELETE", 0, 0).onDeath(ctx);
+        TestContexts.apply(ctx);
         assertEquals(0, player.getLevel());
     }
 
     @Test
     void percentageModeDeletesShare() {
         player.setLevel(30);
-        effect("PERCENTAGE", "DELETE", 50, 50).onDeath(TestContexts.death(player)); // lose 50% of 30 = 15
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("PERCENTAGE", "DELETE", 50, 50).onDeath(ctx); // lose 50% of 30 = 15
+        TestContexts.apply(ctx);
         assertEquals(15, player.getLevel());
     }
 
     @Test
     void simpleModeDeletesFixedAmount() {
         player.setLevel(10);
-        effect("SIMPLE", "DELETE", 5, 5).onDeath(TestContexts.death(player)); // lose exactly 5
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("SIMPLE", "DELETE", 5, 5).onDeath(ctx); // lose exactly 5
+        TestContexts.apply(ctx);
         assertEquals(5, player.getLevel());
     }
 
     @Test
     void noLevelsToLoseLeavesPlayerUnchanged() {
         player.setLevel(0);
-        effect("ALL", "DELETE", 0, 0).onDeath(TestContexts.death(player)); // 0 levels -> early return
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("ALL", "DELETE", 0, 0).onDeath(ctx); // 0 levels -> early return
+        TestContexts.apply(ctx);
         assertEquals(0, player.getLevel());
     }
 
@@ -85,8 +94,9 @@ class ExpEffectTest {
     void allModeDropSpawnsOrbAndZeroesLevel() {
         player.setLevel(30);
         // ALL -> loses every level; DROP branch takes playerExpLevel <= levelsToLose -> setLevel(0).
-        effect("ALL", "DROP", 0, 0).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("ALL", "DROP", 0, 0).onDeath(ctx);
+        TestContexts.apply(ctx);
         assertEquals(0, player.getLevel());
         Collection<ExperienceOrb> orbs = orbsInWorld();
         assertEquals(1, orbs.size(), "DROP should spawn exactly one ExperienceOrb");
@@ -97,8 +107,9 @@ class ExpEffectTest {
     void percentageModeDropSpawnsOrbAndLowersLevel() {
         player.setLevel(30);
         // PERCENTAGE 50% of 30 = 15 levels lost; 30 > 15 -> partial DROP branch, setLevel(15).
-        effect("PERCENTAGE", "DROP", 50, 50).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("PERCENTAGE", "DROP", 50, 50).onDeath(ctx);
+        TestContexts.apply(ctx);
         assertEquals(15, player.getLevel());
         Collection<ExperienceOrb> orbs = orbsInWorld();
         assertEquals(1, orbs.size(), "DROP should spawn exactly one ExperienceOrb");
@@ -109,8 +120,9 @@ class ExpEffectTest {
     void simpleModeDropSpawnsOrbAndLowersLevel() {
         player.setLevel(10);
         // SIMPLE min==max -> lose exactly 5 levels; 10 > 5 -> partial DROP branch, setLevel(5).
-        effect("SIMPLE", "DROP", 5, 5).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("SIMPLE", "DROP", 5, 5).onDeath(ctx);
+        TestContexts.apply(ctx);
         assertEquals(5, player.getLevel());
         Collection<ExperienceOrb> orbs = orbsInWorld();
         assertEquals(1, orbs.size(), "DROP should spawn exactly one ExperienceOrb");
@@ -121,8 +133,9 @@ class ExpEffectTest {
     void dropWithNoLevelsSpawnsNoOrb() {
         player.setLevel(0);
         // 0 levels -> levelsToLose < 1 -> early return, no orb spawned.
-        effect("ALL", "DROP", 0, 0).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("ALL", "DROP", 0, 0).onDeath(ctx);
+        TestContexts.apply(ctx);
         assertEquals(0, player.getLevel());
         assertFalse(orbsInWorld().iterator().hasNext(), "no orb should be spawned when there is nothing to drop");
     }
@@ -133,8 +146,9 @@ class ExpEffectTest {
         player.setExp(0);
         // SIMPLE still wants a level gone even though the player has none, so the effect reaches the
         // DROP branch with nothing to hand out. An orb worth 0 would linger in the world forever.
-        effect("SIMPLE", "DROP", 1, 1).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("SIMPLE", "DROP", 1, 1).onDeath(ctx);
+        TestContexts.apply(ctx);
         assertEquals(0, player.getLevel());
         assertFalse(orbsInWorld().iterator().hasNext(), "an empty drop should not spawn a 0 experience orb");
     }

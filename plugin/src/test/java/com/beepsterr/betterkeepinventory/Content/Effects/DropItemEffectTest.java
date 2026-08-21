@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Material;
@@ -23,7 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Layer 3: effect test with the full plugin loaded. DropItemEffect reads the
  * BetterKeepInventory singleton (rng, config, debug), so we boot the plugin via
- * MockBukkit. Then we drive onDeath() directly and assert on the world/inventory.
+ * MockBukkit. The effect moves items between the context's buckets rather than touching the
+ * player, so each test applies the context afterwards and then asserts on the world/inventory --
+ * the same two steps a real death performs.
  */
 class DropItemEffectTest {
 
@@ -56,7 +59,9 @@ class DropItemEffectTest {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND, 5));
         player.getInventory().addItem(new ItemStack(Material.DIRT, 64));
 
-        effect("ALL").onDeath(TestContexts.death(player));
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("ALL").onDeath(ctx);
+        TestContexts.apply(ctx);
 
         assertTrue(player.getInventory().isEmpty(), "inventory should be emptied by mode ALL");
         assertEquals(2, world.getEntitiesByClass(Item.class).size(), "both stacks should be dropped as ground items");
@@ -70,7 +75,9 @@ class DropItemEffectTest {
         MemoryConfiguration cfg = new MemoryConfiguration();
         cfg.set("mode", "ALL");
         cfg.set("filters.items", java.util.List.of("DIRT"));
-        new DropItemEffect(cfg).onDeath(TestContexts.death(player));
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DropItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
 
         assertTrue(player.getInventory().contains(Material.DIAMOND), "diamonds should be kept (not in filter)");
         assertFalse(player.getInventory().contains(Material.DIRT), "dirt should be dropped (matches filter)");

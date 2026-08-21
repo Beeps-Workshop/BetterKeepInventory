@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.support;
 
 import com.beepsterr.betterkeepinventory.Library.Config;
+import com.beepsterr.betterkeepinventory.Library.DeathApplication;
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -38,5 +39,17 @@ public final class TestContexts {
         DeathContextImpl ctx = death(player);
         ctx.enterRespawnPhase(player, event, new NoopLogger());
         return ctx;
+    }
+
+    /**
+     * Hand the context's buckets to the player and the world, exactly as a real death does.
+     * <p>
+     * Effects no longer touch the player directly -- they move items between the two buckets --
+     * so a test that wants to assert on the player's inventory or on ground items has to apply
+     * first. Calling the production code rather than reimplementing it keeps the two from
+     * drifting.
+     */
+    public static void apply(DeathContextImpl ctx) {
+        DeathApplication.apply(ctx, null, new NoopLogger());
     }
 }

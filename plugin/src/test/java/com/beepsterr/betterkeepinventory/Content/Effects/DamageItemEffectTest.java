@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Material;
@@ -80,8 +81,9 @@ class DamageItemEffectTest {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));
 
         // PERCENTAGE 10%: damage = (int)(maxDurability * 10 / 100)
-        effect("PERCENTAGE", 10.0, 10.0).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("PERCENTAGE", 10.0, 10.0).onDeath(ctx);
+        TestContexts.apply(ctx);
         int chestMax = Material.DIAMOND_CHESTPLATE.getMaxDurability(); // 528
         int pickMax = Material.DIAMOND_PICKAXE.getMaxDurability();     // 1561
 
@@ -96,8 +98,11 @@ class DamageItemEffectTest {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND, 5));
         player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));
 
-        effect("PERCENTAGE", 10.0, 10.0).onDeath(TestContexts.death(player));
+        DeathContextImpl ctx = TestContexts.death(player);
 
+        effect("PERCENTAGE", 10.0, 10.0).onDeath(ctx);
+
+        TestContexts.apply(ctx);
         // Diamonds have no durability -> untouched (still a full stack of 5).
         assertEquals(5, player.getInventory().getItem(0).getAmount(),
                 "non-damageable diamonds should be untouched");
@@ -116,8 +121,9 @@ class DamageItemEffectTest {
         cfg.set("min", 10.0);
         cfg.set("max", 10.0);
         cfg.set("filters.items", List.of("DIAMOND_PICKAXE"));
-        new DamageItemEffect(cfg).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DamageItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
         assertEquals(0, damageOf(player.getInventory().getItem(0)),
                 "chestplate is not in the item filter and must be untouched");
         assertEquals((int) (Material.DIAMOND_PICKAXE.getMaxDurability() * 0.10),
@@ -136,8 +142,9 @@ class DamageItemEffectTest {
         cfg.set("min", 10.0);
         cfg.set("max", 10.0);
         cfg.set("filters.slots", List.of("ARMOR"));
-        new DamageItemEffect(cfg).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DamageItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
         assertEquals(0, damageOf(player.getInventory().getItem(0)),
                 "pickaxe sits in a non-armor slot and must be untouched");
         assertEquals((int) (Material.DIAMOND_CHESTPLATE.getMaxDurability() * 0.10),
@@ -155,8 +162,9 @@ class DamageItemEffectTest {
         cfg.set("min", 10.0);
         cfg.set("max", 10.0);
         cfg.set("dont_break", true);
-        new DamageItemEffect(cfg).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DamageItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
         ItemStack pick = player.getInventory().getItem(0);
         assertTrue(pick != null && pick.getType() == Material.DIAMOND_PICKAXE,
                 "dont_break should keep the item in the inventory");
@@ -171,8 +179,9 @@ class DamageItemEffectTest {
         player.getInventory().addItem(withDamage(Material.DIAMOND_PICKAXE, max - 1));
 
         // dont_break defaults to false: 10% of max overflows durability -> breaks.
-        effect("PERCENTAGE", 10.0, 10.0).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("PERCENTAGE", 10.0, 10.0).onDeath(ctx);
+        TestContexts.apply(ctx);
         // The production code breaks the item via item.setAmount(amount - 1),
         // taking the single pickaxe to amount 0. MockBukkit keeps the slot's
         // ItemStack reference rather than nulling it, so an amount-0 (or
@@ -188,8 +197,9 @@ class DamageItemEffectTest {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));    // maxDur 1561
 
         // SIMPLE min==max==7 -> both items take a flat 7 points, independent of max.
-        effect("SIMPLE", 7.0, 7.0).onDeath(TestContexts.death(player));
-
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("SIMPLE", 7.0, 7.0).onDeath(ctx);
+        TestContexts.apply(ctx);
         assertEquals(7, damageOf(player.getInventory().getItem(0)),
                 "SIMPLE mode applies a flat damage to the chestplate");
         assertEquals(7, damageOf(player.getInventory().getItem(1)),
@@ -199,13 +209,17 @@ class DamageItemEffectTest {
     @Test
     void percentageAndSimpleModesDifferForHighDurabilityItems() {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));
-        effect("SIMPLE", 5.0, 5.0).onDeath(TestContexts.death(player));
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("SIMPLE", 5.0, 5.0).onDeath(ctx);
+        TestContexts.apply(ctx);
         int simpleDamage = damageOf(player.getInventory().getItem(0));
 
         // fresh player/inventory for the percentage run
         PlayerMock player2 = server.addPlayer();
         player2.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));
-        effect("PERCENTAGE", 5.0, 5.0).onDeath(TestContexts.death(player2));
+        DeathContextImpl ctx2 = TestContexts.death(player2);
+        effect("PERCENTAGE", 5.0, 5.0).onDeath(ctx2);
+        TestContexts.apply(ctx2);
         int percentageDamage = damageOf(player2.getInventory().getItem(0));
 
         assertEquals(5, simpleDamage, "SIMPLE 5 -> flat 5 points");

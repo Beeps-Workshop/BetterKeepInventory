@@ -7,6 +7,8 @@ import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
+import org.bukkit.entity.ExperienceOrb;
+import org.bukkit.entity.Item;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.junit.jupiter.api.AfterEach;
@@ -29,12 +31,17 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * interacts with the world's keepInventory decision.
  * <p>
  * The interaction that matters: the server only collects death loot when it intends to drop it.
- * On a keepInventory world it collects nothing, so {@code event.getDrops()} arrives empty. A
- * handler that flips keepInventory off without noticing leaves the server clearing the inventory
- * and spawning an empty list, which destroys the player's items outright.
+ * On a keepInventory world it collects nothing, so {@code event.getDrops()} arrives empty and
+ * says nothing about what the player was carrying. The handler builds both buckets from its own
+ * snapshot instead of asking, and distributes them itself.
  * <p>
- * These assert on the event's final state rather than on spawned entities, because the server --
- * not the plugin -- is what acts on that state once every handler has run.
+ * These therefore assert on <em>outcome</em> -- what the player is left holding and what is on
+ * the ground -- rather than on the event's flags. The flags are an implementation detail of how
+ * the handler stops the server acting on its own idea of the death; the outcome is the contract.
+ * <p>
+ * Several tests assert conservation: items kept plus items dropped equals items carried. That is
+ * the invariant the 2.3.2 dupe/destroy bug violated, and it holds regardless of behavior or
+ * gamerule.
  */
 class OnPlayerDeathTest {
 
@@ -70,7 +77,7 @@ class OnPlayerDeathTest {
 
     /**
      * As {@link #behavior}, plus a rule whose exp effect deletes a fixed number of levels while
-     * the rules are running -- so the player's level differs before and after them.
+     * the rules are running.
      */
     private void behaviorWithExpRule(String value, int levelsToLose) throws UnloadableConfiguration {
         YamlConfiguration cfg = new YamlConfiguration();
@@ -92,6 +99,7 @@ class OnPlayerDeathTest {
      *                   event's initial flags and whether the server bothered to collect any loot.
      */
     private PlayerDeathEvent death(boolean worldKeeps, List<ItemStack> vanillaLoot) {
+        world.setGameRule(org.bukkit.GameRule.KEEP_INVENTORY, worldKeeps);
         DamageSource source = DamageSource.builder(DamageType.GENERIC).build();
         PlayerDeathEvent event = new PlayerDeathEvent(player, source, vanillaLoot, 0, "died");
         event.setKeepInventory(worldKeeps);
@@ -104,6 +112,35 @@ class OnPlayerDeathTest {
         return event;
     }
 
+    // --- observations -------------------------------------------------------------------------
+
+    private List<ItemStack> groundItems() {
+        return world.getEntitiesByClass(Item.class).stream().map(Item::getItemStack).toList();
+    }
+
+    private int countOnGround(Material type) {
+        return groundItems().stream().filter(i -> i.getType() == type).mapToInt(ItemStack::getAmount).sum();
+    }
+
+    private int countHeld(Material type) {
+        int total = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == type) total += item.getAmount();
+        }
+        return total;
+    }
+
+    /** Items kept plus items dropped must equal items carried, whatever the behavior. */
+    private void assertConserved(Material type, int carried) {
+        assertEquals(carried, countHeld(type) + countOnGround(type),
+                "kept + dropped must equal what was carried (" + type + ")");
+    }
+
+    private int droppedExperience() {
+        return world.getEntitiesByClass(ExperienceOrb.class).stream()
+                .mapToInt(ExperienceOrb::getExperience).sum();
+    }
+
     // --- DROP on a world that keeps: the case that used to delete inventories ------------------
 
     @Test
@@ -113,28 +150,24 @@ class OnPlayerDeathTest {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND, 3));
 
         // World keeps inventory, so the server collected nothing for us.
-        PlayerDeathEvent event = fire(death(true, new ArrayList<>()));
+        fire(death(true, new ArrayList<>()));
 
-        assertFalse(event.getKeepInventory(), "DROP has to end with the server dropping the loot");
-        assertFalse(event.getDrops().isEmpty(),
-                "the inventory must be handed to the server as drops, not left to be cleared into nothing");
+        assertConserved(Material.COBBLESTONE, 64);
+        assertConserved(Material.DIAMOND, 3);
+        assertTrue(player.getInventory().isEmpty(), "DROP means the player keeps nothing");
     }
 
     @Test
-    void dropOnKeepingWorldCollectsEveryStack() throws UnloadableConfiguration {
+    void dropOnKeepingWorldDropsEveryStack() throws UnloadableConfiguration {
         behavior("DROP");
         player.getInventory().addItem(new ItemStack(Material.COBBLESTONE, 64));
         player.getInventory().addItem(new ItemStack(Material.DIAMOND, 3));
 
-        PlayerDeathEvent event = fire(death(true, new ArrayList<>()));
+        fire(death(true, new ArrayList<>()));
 
-        assertEquals(2, event.getDrops().size(), "both stacks should have been collected");
-        assertTrue(event.getDrops().stream()
-                        .anyMatch(i -> i.getType() == Material.COBBLESTONE && i.getAmount() == 64),
-                "the full cobblestone stack should drop");
-        assertTrue(event.getDrops().stream()
-                        .anyMatch(i -> i.getType() == Material.DIAMOND && i.getAmount() == 3),
-                "the full diamond stack should drop");
+        assertEquals(2, groundItems().size(), "both stacks should have been dropped");
+        assertEquals(64, countOnGround(Material.COBBLESTONE));
+        assertEquals(3, countOnGround(Material.DIAMOND));
     }
 
     @Test
@@ -142,10 +175,10 @@ class OnPlayerDeathTest {
         behavior("DROP");
         player.setLevel(30);
 
-        PlayerDeathEvent event = fire(death(true, new ArrayList<>()));
+        fire(death(true, new ArrayList<>()));
 
-        assertFalse(event.getKeepLevel(), "DROP has to end with the server dropping levels");
-        assertEquals(100, event.getDroppedExp(), "vanilla caps death experience at 100 points");
+        assertEquals(100, droppedExperience(), "vanilla caps death experience at 100 points");
+        assertEquals(0, player.getLevel(), "DROP means the player keeps no levels");
     }
 
     @Test
@@ -153,90 +186,103 @@ class OnPlayerDeathTest {
         behavior("DROP");
         player.setLevel(5);
 
-        PlayerDeathEvent event = fire(death(true, new ArrayList<>()));
+        fire(death(true, new ArrayList<>()));
 
-        assertEquals(35, event.getDroppedExp(), "below the cap a death drops 7 points per level");
+        assertEquals(35, droppedExperience(), "below the cap a death drops 7 points per level");
     }
 
+    /**
+     * The experience payout is worked out from the level the player died at, before any effect
+     * ran -- that is what the server itself would have computed. Measuring what an effect left
+     * behind instead would make the payout depend on the world's gamerule.
+     * <p>
+     * Under DROP the levels are already in the drop bucket when the rules run, so an exp effect
+     * has nothing left to take: dropping is a transfer, and the source is empty. Previously the
+     * effect took five levels off a player who was <em>also</em> having the full ten levels'
+     * worth dropped for them, which double-counted.
+     */
     @Test
-    void dropOnKeepingWorldDropsExperienceForTheLevelDiedAt() throws UnloadableConfiguration {
-        // An exp effect takes 5 of the player's 10 levels while the rules run. The experience we
-        // hand the server still has to be based on the 10 they died at, because that is what the
-        // server itself would have worked out on a dropping world. Measuring the 5 left over
-        // instead would make the payout depend on the world's gamerule.
+    void dropExperienceIsBasedOnTheLevelDiedAtAndIsNotDoubleCounted() throws UnloadableConfiguration {
         behaviorWithExpRule("DROP", 5);
         player.setLevel(10);
 
-        PlayerDeathEvent event = fire(death(true, new ArrayList<>()));
+        fire(death(true, new ArrayList<>()));
 
-        assertEquals(5, player.getLevel(), "the exp effect should have taken its 5 levels");
-        assertEquals(70, event.getDroppedExp(),
-                "7 points per level of the 10 died at, not of the 5 the effect left behind");
+        assertEquals(0, player.getLevel(), "DROP means the player keeps no levels");
+        assertEquals(70, droppedExperience(),
+                "7 points per level of the 10 died at, counted once");
     }
 
     @Test
     void dropOnKeepingWorldWithNothingCarriedDropsNothing() throws UnloadableConfiguration {
         behavior("DROP");
 
-        PlayerDeathEvent event = fire(death(true, new ArrayList<>()));
+        fire(death(true, new ArrayList<>()));
 
-        assertTrue(event.getDrops().isEmpty(), "an empty inventory has nothing to collect");
-        assertFalse(event.getKeepInventory());
+        assertTrue(groundItems().isEmpty(), "an empty inventory has nothing to drop");
     }
 
-    // --- DROP on a world that already drops: must stay exactly as it was ----------------------
+    // --- DROP on a world that already drops: same outcome, no duplication ---------------------
 
     @Test
-    void dropOnDroppingWorldLeavesTheServersLootAlone() throws UnloadableConfiguration {
+    void dropOnDroppingWorldDropsEachStackExactlyOnce() throws UnloadableConfiguration {
         behavior("DROP");
         player.getInventory().addItem(new ItemStack(Material.COBBLESTONE, 64));
 
-        // The world drops on death, so the server already collected the loot for us.
+        // The world drops on death, so the server already collected the loot for us. We ignore
+        // that list entirely and build from our own snapshot, so it must not be dropped as well.
         List<ItemStack> vanillaLoot = new ArrayList<>();
         vanillaLoot.add(new ItemStack(Material.COBBLESTONE, 64));
-        PlayerDeathEvent event = fire(death(false, vanillaLoot));
+        fire(death(false, vanillaLoot));
 
-        assertFalse(event.getKeepInventory());
-        assertEquals(1, event.getDrops().size(),
-                "collecting on top of loot the server already gathered would duplicate it");
+        assertConserved(Material.COBBLESTONE, 64);
+        assertEquals(64, countOnGround(Material.COBBLESTONE),
+                "dropping our snapshot on top of the server's collected loot would duplicate it");
     }
 
     // --- KEEP and INHERIT: regression guards --------------------------------------------------
 
     @Test
-    void keepClearsTheServersLootSoItIsNotDuplicated() throws UnloadableConfiguration {
+    void keepLeavesThePlayerHoldingEverything() throws UnloadableConfiguration {
         behavior("KEEP");
+        player.getInventory().addItem(new ItemStack(Material.COBBLESTONE, 64));
+        player.setLevel(10);
+
         List<ItemStack> vanillaLoot = new ArrayList<>();
         vanillaLoot.add(new ItemStack(Material.COBBLESTONE, 64));
+        fire(death(false, vanillaLoot));
 
-        PlayerDeathEvent event = fire(death(false, vanillaLoot));
-
-        assertTrue(event.getKeepInventory(), "KEEP has to end with the server keeping the inventory");
-        assertTrue(event.getDrops().isEmpty(),
+        assertConserved(Material.COBBLESTONE, 64);
+        assertEquals(64, countHeld(Material.COBBLESTONE), "KEEP means the player keeps everything");
+        assertTrue(groundItems().isEmpty(),
                 "keeping the inventory AND dropping the collected loot would duplicate it");
-        assertEquals(0, event.getDroppedExp());
+        assertEquals(10, player.getLevel());
+        assertEquals(0, droppedExperience());
     }
 
     @Test
-    void inheritLeavesAKeepingWorldAlone() throws UnloadableConfiguration {
+    void inheritFollowsAKeepingWorld() throws UnloadableConfiguration {
         behavior("INHERIT");
         player.getInventory().addItem(new ItemStack(Material.COBBLESTONE, 64));
 
-        PlayerDeathEvent event = fire(death(true, new ArrayList<>()));
+        fire(death(true, new ArrayList<>()));
 
-        assertTrue(event.getKeepInventory(), "INHERIT must not overrule the world");
-        assertTrue(event.getDrops().isEmpty());
+        assertConserved(Material.COBBLESTONE, 64);
+        assertEquals(64, countHeld(Material.COBBLESTONE), "INHERIT must follow the world, which keeps");
+        assertTrue(groundItems().isEmpty());
     }
 
     @Test
-    void inheritLeavesADroppingWorldAlone() throws UnloadableConfiguration {
+    void inheritFollowsADroppingWorld() throws UnloadableConfiguration {
         behavior("INHERIT");
+        player.getInventory().addItem(new ItemStack(Material.COBBLESTONE, 64));
+
         List<ItemStack> vanillaLoot = new ArrayList<>();
         vanillaLoot.add(new ItemStack(Material.COBBLESTONE, 64));
+        fire(death(false, vanillaLoot));
 
-        PlayerDeathEvent event = fire(death(false, vanillaLoot));
-
-        assertFalse(event.getKeepInventory(), "INHERIT must not overrule the world");
-        assertEquals(1, event.getDrops().size(), "INHERIT must not touch the collected loot");
+        assertConserved(Material.COBBLESTONE, 64);
+        assertEquals(64, countOnGround(Material.COBBLESTONE), "INHERIT must follow the world, which drops");
+        assertTrue(player.getInventory().isEmpty());
     }
 }
