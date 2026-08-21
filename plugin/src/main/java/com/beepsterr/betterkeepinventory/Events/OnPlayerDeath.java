@@ -5,6 +5,9 @@ import com.beepsterr.betterkeepinventory.Library.ConfigRule;
 import com.beepsterr.betterkeepinventory.Library.DeathApplication;
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
 import com.beepsterr.betterkeepinventory.Library.NestedLogBuilder;
+import com.beepsterr.betterkeepinventory.api.Events.BKIPlayerDeathAppliedEvent;
+import com.beepsterr.betterkeepinventory.api.Events.BKIPlayerDeathProcessedEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.GameRule;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -51,6 +54,14 @@ public class OnPlayerDeath  implements Listener {
             rule.trigger(ctx);
         }
 
+        // Last chance to change what this death costs: the buckets are final but nothing has
+        // reached the world yet. A buyback shop drains ctx.drops() here; a "purchased life"
+        // plugin moves it all back into ctx.inventory().
+        Bukkit.getPluginManager().callEvent(new BKIPlayerDeathProcessedEvent(ctx));
+
         DeathApplication.apply(ctx, event, nlb);
+
+        // Settled. For observers only -- changing the buckets now has no effect.
+        Bukkit.getPluginManager().callEvent(new BKIPlayerDeathAppliedEvent(ctx));
     }
 }

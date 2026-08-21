@@ -4,6 +4,8 @@ import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Library.ConfigRule;
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
 import com.beepsterr.betterkeepinventory.Library.NestedLogBuilder;
+import com.beepsterr.betterkeepinventory.api.Events.BKIPlayerRespawnProcessedEvent;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -51,6 +53,10 @@ public class OnPlayerRespawn implements Listener {
         for(ConfigRule rule : plugin.config.getRules()){
             rule.trigger(ctx);
         }
+
+        // No application step in this phase, so one event is enough -- a second would fire with
+        // nothing in between.
+        Bukkit.getPluginManager().callEvent(new BKIPlayerRespawnProcessedEvent(ctx));
     }
 
 }
