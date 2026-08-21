@@ -35,6 +35,7 @@ public class Config {
     private final String hash;
     private final boolean debug;
     private final DefaultBehavior defaultBehavior;
+    private Ruleset ruleset;
 
     public Config(FileConfiguration config, NestedLogBuilder nlb) throws UnloadableConfiguration {
 
@@ -81,6 +82,11 @@ public class Config {
 
         defaultBehavior = DefaultBehavior.valueOf(config.getString("default_behavior", "INHERIT").toUpperCase());
 
+        // Constructed, deliberately not built. Addons register their conditions and effects in
+        // their own onEnable, which runs after ours -- building now would parse the rules before
+        // they exist and quietly drop every rule that uses one.
+        this.ruleset = new Ruleset(this.rawConfig.getConfigurationSection("rules"));
+
         nlb.parent();
 
     }
@@ -101,18 +107,52 @@ public class Config {
         return defaultBehavior;
     }
 
-    public List<ConfigRule> getRules(NestedLogBuilder nlb) {
-        List<ConfigRule> rules = new ArrayList<>();
-        ConfigurationSection rulesSection = this.rawConfig.getConfigurationSection("rules");
-        if (rulesSection != null) {
-            for (String ruleKey : rulesSection.getKeys(false)) {
-                ConfigurationSection ruleSection = rulesSection.getConfigurationSection(ruleKey);
-                if (ruleSection != null) {
-                    rules.add(new ConfigRule(ruleSection, null, nlb));
-                }
-            }
+    public Ruleset getRuleset() {
+        return ruleset;
+    }
+
+    /**
+     * The rules to evaluate for a death.
+     */
+    public List<ConfigRule> getRules() {
+        return ruleset.rules();
+    }
+
+    /**
+     * Build the rules now, and narrate it into {@code nlb}.
+     * <p>
+     * Used where the result is wanted immediately and in context: plugin startup, and
+     * {@code /bki reload}. Everywhere else {@link #invalidateRules()} is enough.
+     */
+    public void buildRules(NestedLogBuilder nlb) {
+        ruleset.build(nlb);
+    }
+
+    /**
+     * Mark the rules as needing a rebuild, and schedule one for the next tick.
+     * <p>
+     * Called whenever a condition or effect is registered or unregistered, which mostly happens
+     * in bursts: the plugin's own registrations at startup, then one burst per addon as it
+     * enables. Deferring to the next tick collapses each burst into a single parse instead of
+     * reparsing the whole tree once per registration.
+     * <p>
+     * The scheduled rebuild is an optimisation, not a guarantee -- {@link Ruleset#rules()}
+     * rebuilds on demand if a death gets there first.
+     */
+    public void invalidateRules() {
+
+        ruleset.invalidate();
+
+        BetterKeepInventory plugin = BetterKeepInventory.getInstance();
+        if (plugin == null || BetterKeepInventory.getScheduler() == null) {
+            return;
         }
-        return rules;
+
+        BetterKeepInventory.getScheduler().getScheduler().runNextTick(task -> {
+            if (ruleset.isStale()) {
+                ruleset.build(null);
+            }
+        });
     }
 
     public VersionChannel getNotifyChannel() {

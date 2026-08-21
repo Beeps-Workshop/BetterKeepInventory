@@ -275,6 +275,10 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        // Parse the rules here rather than leaving it to the next death, so a broken rule is
+        // reported to whoever ran the reload instead of surfacing hours later in a death log.
+        plugin.config.buildRules(null);
+
         sender.sendMessage(ChatColor.GREEN + "Configuration reloaded successfully.");
 
         // Cancel version checks

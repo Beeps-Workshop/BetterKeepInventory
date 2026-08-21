@@ -30,8 +30,15 @@ public abstract class PluginRegistry<T> implements Registry<T> {
     /** Bare keys already reported as ambiguous, so the warning is printed once and not per lookup. */
     private final Set<String> reportedCollisions = new HashSet<>();
 
+    /** Notified whenever registrations change, so the rule tree can be rebuilt. */
+    private Runnable changeListener = () -> {};
+
     protected PluginRegistry(Plugin owner) {
         this.owner = owner;
+    }
+
+    public void setChangeListener(Runnable listener) {
+        this.changeListener = listener != null ? listener : () -> {};
     }
 
     private static String namespaced(Plugin plugin, String key) {
@@ -46,18 +53,27 @@ public abstract class PluginRegistry<T> implements Registry<T> {
     @Override
     public void register(Plugin plugin, String key, T entry) {
         entries.put(namespaced(plugin, key), new RegistryEntry<>(plugin, entry));
+        changeListener.run();
     }
 
     @Override
     public boolean unregister(Plugin plugin, String key) {
-        return entries.remove(namespaced(plugin, key)) != null;
+        boolean removed = entries.remove(namespaced(plugin, key)) != null;
+        if (removed) {
+            changeListener.run();
+        }
+        return removed;
     }
 
     @Override
     public int unregisterAll(Plugin plugin) {
         int before = entries.size();
         entries.values().removeIf(entry -> entry.plugin().equals(plugin));
-        return before - entries.size();
+        int removed = before - entries.size();
+        if (removed > 0) {
+            changeListener.run();
+        }
+        return removed;
     }
 
     @Override

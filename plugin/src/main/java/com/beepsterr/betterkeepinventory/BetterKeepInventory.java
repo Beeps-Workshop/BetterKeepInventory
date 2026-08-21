@@ -77,6 +77,15 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
             return;
         }
 
+        // Rebuild the rule tree whenever an addon adds or removes a condition or effect. Plugins
+        // can be enabled and disabled at any time, so this cannot just happen once at startup.
+        conditionRegistry.setChangeListener(this::onRegistrationsChanged);
+        effectRegistry.setChangeListener(this::onRegistrationsChanged);
+
+        // Our own conditions and effects are registered above, so the tree can be built now.
+        // Addons enable after us and will invalidate it again through the listeners.
+        config.buildRules(nlb);
+
         // event handlers
         getServer().getPluginManager().registerEvents(new OnPlayerDeath(this), this);
         getServer().getPluginManager().registerEvents(new OnPlayerRespawn(this), this);
@@ -113,6 +122,12 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
         // Cancel version checks (not sure if needed in onDisable? but can't hurt. (hopefully))
         if(versionChecker != null){
             versionChecker.CancelCheck();
+        }
+    }
+
+    private void onRegistrationsChanged() {
+        if (config != null) {
+            config.invalidateRules();
         }
     }
 

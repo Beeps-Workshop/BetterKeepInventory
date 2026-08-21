@@ -77,8 +77,8 @@ public class OnPlayerDeath  implements Listener {
         BetterKeepInventory.instance.metrics.deathsProcessed +=1;
 
         // Time to process the top level rules
-        for(ConfigRule rule : plugin.config.getRules(nlb)){
-            rule.trigger(ply, event, null);
+        for(ConfigRule rule : plugin.config.getRules()){
+            rule.trigger(ply, event, null, nlb);
         }
 
         if(collectDropsOurselves){

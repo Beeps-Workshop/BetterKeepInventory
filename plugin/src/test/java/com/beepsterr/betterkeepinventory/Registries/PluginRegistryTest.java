@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mockbukkit.mockbukkit.MockBukkit;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -193,5 +194,62 @@ class PluginRegistryTest {
                 List.of("aaaaddon.zebra", "aaaaddon.apple"),
                 List.copyOf(registry.getAll().keySet())
         );
+    }
+
+    // --- change notification -----------------------------------------------------------------
+    // The rule tree is parsed once and reused, so it has to be told when the set of available
+    // conditions and effects changes -- otherwise an addon enabling after us is silently ignored.
+
+    @Test
+    void registerNotifiesTheChangeListener() {
+        AtomicInteger calls = new AtomicInteger();
+        registry.setChangeListener(calls::incrementAndGet);
+
+        registry.register(aaaAddon, "example", AAA_FACTORY);
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void unregisterNotifiesTheChangeListener() {
+        registry.register(aaaAddon, "example", AAA_FACTORY);
+
+        AtomicInteger calls = new AtomicInteger();
+        registry.setChangeListener(calls::incrementAndGet);
+        registry.unregister(aaaAddon, "example");
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void aNoOpUnregisterDoesNotNotify() {
+        AtomicInteger calls = new AtomicInteger();
+        registry.setChangeListener(calls::incrementAndGet);
+
+        registry.unregister(aaaAddon, "nothing-here");
+
+        assertEquals(0, calls.get(), "nothing changed, so nothing needs rebuilding");
+    }
+
+    @Test
+    void unregisterAllNotifiesOnceForTheWholeBatch() {
+        registry.register(aaaAddon, "one", AAA_FACTORY);
+        registry.register(aaaAddon, "two", AAA_FACTORY);
+
+        AtomicInteger calls = new AtomicInteger();
+        registry.setChangeListener(calls::incrementAndGet);
+        registry.unregisterAll(aaaAddon);
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
+    void unregisterAllOfAPluginWithNothingRegisteredDoesNotNotify() {
+        AtomicInteger calls = new AtomicInteger();
+        registry.setChangeListener(calls::incrementAndGet);
+
+        registry.unregisterAll(zzzAddon);
+
+        assertEquals(0, calls.get());
     }
 }

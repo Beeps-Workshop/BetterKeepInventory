@@ -37,8 +37,8 @@ public class OnPlayerRespawn implements Listener {
         nlb.spacer();
 
         // Time to process the top level rules
-        for(ConfigRule rule : plugin.config.getRules(nlb)){
-            rule.trigger(event.getPlayer(), null, event);
+        for(ConfigRule rule : plugin.config.getRules()){
+            rule.trigger(event.getPlayer(), null, event, nlb);
         }
     }
 
