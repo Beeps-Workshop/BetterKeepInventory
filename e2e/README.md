@@ -26,6 +26,59 @@ server internal, deliberately: a change in flight pins `keepInventory(true)` and
 distributes drops by hand, which leaves that list empty by design. Items-on-the-ground
 assertions survive that; assertions about the drops list would fail for the wrong reason.
 
+## What belongs here, and what does not
+
+The test to apply is **who is the authority on the answer**.
+
+**If our own code decides it, write a unit test.** Config parsing, filter matching, damage
+arithmetic, experience curves, percentage rounding, registry resolution, rule ordering. Those run
+in under a second, can cover the whole parameter space, and a real server adds nothing to them but
+latency.
+
+**If the server decides it, write it here.** Whether `setKeepInventory(true)` really stops the
+server spawning its own drops. Whether a disconnected player's respawn still arrives. Whether an
+item's durability survives a real death. Where a dropped item physically ends up. Whether a
+delayed task actually fires.
+
+That distinction matters more than it sounds, because MockBukkit will cheerfully let you assert
+something the real server disagrees with.
+
+### It follows that
+
+**Do not re-run parameter matrices here.** `DamageItemEffectTest` already covers PERCENTAGE
+against SIMPLE against PERCENTAGE\_REMAINING, unbreaking, `dont_break` and the elytra special
+case, in eight tests that finish in under a second. None of those values change what the *server*
+does — they change what our arithmetic produces, and that is already known. What this suite wants
+instead is one representative case per **server-visible** difference. For the damage effect that
+is two tests, not a matrix: does a damaged item keep its durability through a real death when
+kept, and when dropped.
+
+**Do not test Minecraft.** "Does one player killing another produce `ENTITY_ATTACK`?" is a
+question about the game, not about this plugin — the condition only reads an enum. "Is
+`getKiller()` populated at the moment our handler runs, and does it survive to the respawn phase?"
+is a question about us, and belongs here.
+
+**Do vary the gamerule, but only where it can matter.** The gamerule changes what the server does
+with a death, so effects that move items or experience are worth running against both settings.
+Effects that touch neither — `lightning`, `command` — gain nothing from six combinations but six
+times the runtime.
+
+### Assert absence, not just presence
+
+A test that only checks the intended item changed will pass while an unintended one is quietly
+corrupted beside it.
+
+The case that motivates this: in 1.6.1 the damage effect wrote a damage component onto items with
+no durability at all. The bug did not show up as wrong damage — it showed up as **cobblestone that
+would no longer stack**, because a stack carrying that component will not merge with an identical
+stack without it. A unit test can assert we did not call `setDamage`, but that asserts the
+mechanism; a future refactor could tag an item some other way and break stacking just as
+thoroughly. Only a real server can assert the symptom.
+
+So when an effect is meant to leave something alone, check that it did: that the item still
+stacks, that its NBT carries no component it should not have, that the count and slot layout are
+unchanged.
+
 ## Running them
 
 Prerequisites:

@@ -9,7 +9,7 @@ import { run } from './rcon.js';
  * treats the literal string "default" as "this is a pristine file, replace it". Writing
  * a concrete version keeps our config from being swapped for the bundled default.
  */
-const CONFIG_VERSION = '2.3.0';
+const CONFIG_VERSION = '3.0.0';
 
 /**
  * Minimal YAML emitter for the shapes this plugin's config uses: nested maps, string
