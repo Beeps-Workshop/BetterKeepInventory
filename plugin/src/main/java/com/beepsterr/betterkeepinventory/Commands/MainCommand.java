@@ -66,14 +66,15 @@ public class MainCommand implements CommandExecutor, TabCompleter {
                 if(plugin.versionChecker != null && plugin.versionChecker.channel != VersionChannel.NONE) {
                     // One read: the checker thread can clear this between an "is there one?" and
                     // a "what is it?".
-                    Version available = plugin.versionChecker.getAvailableUpdate();
+                    VersionChecker.Update available = plugin.versionChecker.getAvailableUpdate();
                     if (available == null) {
                         sender.sendMessage("" + ChatColor.GREEN + ChatColor.ITALIC + "No updates available.");
                     }else{
 
-                        // Modrinth rather than SpigotMC: the checker filters by what this server
-                        // can run, and Modrinth is where that per-version compatibility lives.
-                        String updateURL = "https://modrinth.com/plugin/betterkeepinventory/versions";
+                        // The page for this exact version, not the list: the checker already
+                        // worked out which one this server can run, so making someone pick again
+                        // from a list is where they choose the wrong one.
+                        String updateURL = available.downloadUrl();
 
                         TextComponent updateAvailableComponent = new TextComponent(available + " is available for download!");
                         updateAvailableComponent.setColor(ChatColor.GOLD);

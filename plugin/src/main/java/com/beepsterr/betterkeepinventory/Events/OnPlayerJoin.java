@@ -1,9 +1,13 @@
 package com.beepsterr.betterkeepinventory.Events;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
-import com.beepsterr.betterkeepinventory.Library.Versions.Version;
+import com.beepsterr.betterkeepinventory.Library.Versions.VersionChecker;
 import com.beepsterr.betterkeepinventory.Library.ConfigRule;
-import org.bukkit.ChatColor;
+import net.md_5.bungee.api.ChatColor;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.ComponentBuilder;
+import net.md_5.bungee.api.chat.HoverEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -41,14 +45,24 @@ public class OnPlayerJoin implements Listener {
 
                 // One read: the checker thread can clear this between an "is there one?" and a
                 // "what is it?".
-                Version available = plugin.versionChecker == null
+                VersionChecker.Update available = plugin.versionChecker == null
                         ? null
                         : plugin.versionChecker.getAvailableUpdate();
 
                 if(available != null) {
-                    // Send a message to the player
                     ply.sendMessage(ChatColor.YELLOW + "A new version of BetterKeepInventory is available!");
-                    ply.sendMessage(ChatColor.GREEN + available.toString() + ChatColor.YELLOW + " (Installed: " + plugin.version.toString() + ")");
+
+                    // Clickable, and pointing at this exact version rather than the list. Being
+                    // told an update exists without being told where to get it just means a trip
+                    // to a search engine.
+                    TextComponent download = new TextComponent(
+                            available.version() + " (Installed: " + plugin.version + ")");
+                    download.setColor(ChatColor.GREEN);
+                    download.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, available.downloadUrl()));
+                    download.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                            new ComponentBuilder(ChatColor.GOLD + "Download " + available.version()).create()));
+
+                    ply.spigot().sendMessage(download);
                 }
             });
 

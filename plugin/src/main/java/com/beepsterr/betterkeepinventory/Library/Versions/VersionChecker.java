@@ -47,8 +47,29 @@ public class VersionChecker {
 
     private static final long CHECK_INTERVAL_TICKS = 20L * 14400; // every 4 hours
 
+    /**
+     * What to tell people about, or null.
+     * <p>
+     * The parsed version and the string Modrinth knows it by travel together, so a caller cannot
+     * read one and then find the other has changed underneath it -- and so the download link
+     * carries Modrinth's own spelling rather than whatever {@link Version#toString()} renders,
+     * which would 404 the moment the two disagreed.
+     */
+    public record Update(Version version, String versionNumber) {
+
+        /** The page for this exact version, rather than the list of all of them. */
+        public String downloadUrl() {
+            return "https://modrinth.com/plugin/" + PROJECT + "/version/" + versionNumber;
+        }
+
+        @Override
+        public String toString() {
+            return version.toString();
+        }
+    }
+
     /** Written on the checker thread, read from the command thread. */
-    public volatile Version foundVersion;
+    public volatile Update found;
 
     public final VersionChannel channel;
 
@@ -63,7 +84,7 @@ public class VersionChecker {
 
         this.task = BetterKeepInventory.getScheduler().getScheduler().runTimerAsync(() -> {
             try {
-                foundVersion = getLatestVersion(channel);
+                found = getLatestVersion(channel);
             } catch (IOException e) {
                 BetterKeepInventory.getInstance().log("Failed to check for updates: " + e.getMessage());
             }
@@ -79,10 +100,10 @@ public class VersionChecker {
      * once a check could legitimately find nothing -- STABLE returns null whenever no compatible
      * version is on the recommended list.
      */
-    public Version getAvailableUpdate() {
-        Version found = foundVersion;
-        if (found == null) return null;
-        return found.compareTo(BetterKeepInventory.getInstance().version) > 0 ? found : null;
+    public Update getAvailableUpdate() {
+        Update update = found;
+        if (update == null) return null;
+        return update.version().compareTo(BetterKeepInventory.getInstance().version) > 0 ? update : null;
     }
 
     public boolean IsUpdateAvailable() {
@@ -107,7 +128,7 @@ public class VersionChecker {
     /**
      * The newest version this server could actually install on the given channel, or null.
      */
-    public static Version getLatestVersion(VersionChannel channel) throws IOException {
+    public static Update getLatestVersion(VersionChannel channel) throws IOException {
 
         if (channel == VersionChannel.NONE) {
             return null;
@@ -127,17 +148,19 @@ public class VersionChecker {
             }
         }
 
-        Version best = null;
+        Candidate best = null;
         for (Candidate candidate : candidates) {
-            if (best == null || candidate.version.compareTo(best) > 0) {
-                best = candidate.version;
+            if (best == null || candidate.version.compareTo(best.version) > 0) {
+                best = candidate;
             }
         }
 
-        if (best != null) {
-            BetterKeepInventory.getInstance().log("Update checker found version: " + best);
+        if (best == null) {
+            return null;
         }
-        return best;
+
+        BetterKeepInventory.getInstance().log("Update checker found version: " + best.versionNumber);
+        return new Update(best.version, best.versionNumber);
     }
 
     private static Set<String> allowedReleaseTypes(VersionChannel channel) {
