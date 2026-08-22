@@ -61,16 +61,17 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             if(checkPerm(sender, "betterkeepinventory.version")){
 
                 // Update checking
-                if(plugin.versionChecker.channel != VersionChannel.NONE) {
+                // Null when update checks are off -- the checker is only constructed when the
+                // channel is something other than NONE.
+                if(plugin.versionChecker != null && plugin.versionChecker.channel != VersionChannel.NONE) {
                     boolean isUpdateAvailable = plugin.versionChecker.IsUpdateAvailable();
                     if (!isUpdateAvailable) {
                         sender.sendMessage("" + ChatColor.GREEN + ChatColor.ITALIC + "No updates available.");
                     }else{
 
-                        String updateURL = switch(plugin.versionChecker.channel) {
-                            case SNAPSHOT -> "https://github.com/BeepSterr/BetterKeepInventory/actions/workflows/build_snapshot.yml";
-                            default -> "https://www.spigotmc.org/resources/betterkeepinventory.93081/";
-                        };
+                        // Modrinth rather than SpigotMC: the checker filters by what this server
+                        // can run, and Modrinth is where that per-version compatibility lives.
+                        String updateURL = "https://modrinth.com/plugin/betterkeepinventory/versions";
 
                         TextComponent updateAvailableComponent = new TextComponent(plugin.versionChecker.foundVersion.toString() + " is available for download!");
                         updateAvailableComponent.setColor(ChatColor.GOLD);

@@ -68,6 +68,13 @@ public class Config {
         this.rawMessages = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "messages.yml"));
 
         version = config.getString("version", "2.1.0");
+
+        // Before anything is read out of the file. A migration that renames or removes a value
+        // has to run first, or the parse below fails on the old spelling -- and
+        // VersionChannel.valueOf throws rather than returning a default, which would take the
+        // whole plugin down for anyone who had picked a channel that no longer exists.
+        MigrateConfiguration();
+
         notifyChannel = VersionChannel.valueOf(config.getString("notify_channel", "STABLE").toUpperCase());
         hash = config.getString("hash", "OLD");
         debug = config.getBoolean("debug", false);
@@ -77,8 +84,6 @@ public class Config {
         }catch(IOException e){
             throw new UnloadableConfiguration(e.getMessage());
         }
-
-        MigrateConfiguration();
 
         defaultBehavior = DefaultBehavior.valueOf(config.getString("default_behavior", "INHERIT").toUpperCase());
 
@@ -241,7 +246,16 @@ public class Config {
 
         String installedVersion = plugin.version.major + "." + plugin.version.minor + "." + plugin.version.patch;
         if(!installedVersion.equals(this.version)){
-            // ... Create migrations here when needed
+
+            // 3.0: snapshots moved to private distribution, so the SNAPSHOT channel is gone.
+            // BETA is the closest surviving intent -- someone on SNAPSHOT was asking for
+            // pre-release builds. Without this the plugin refuses to start for them.
+            if("SNAPSHOT".equalsIgnoreCase(rawConfig.getString("notify_channel", ""))){
+                rawConfig.set("notify_channel", "BETA");
+                plugin.getLogger().info(
+                        "The SNAPSHOT update channel no longer exists; snapshots are now distributed privately. "
+                        + "Switching notify_channel to BETA.");
+            }
         }
 
 //         Migration completed, write new versions
