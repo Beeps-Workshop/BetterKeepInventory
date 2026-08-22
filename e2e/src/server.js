@@ -48,6 +48,17 @@ export function prepareServerDir({ freshWorld = true } = {}) {
   // this because the whole point is an unattended boot; see the note in the README.
   fs.writeFileSync(path.join(serverDir, 'eula.txt'), 'eula=true\n');
 
+  // Bukkit throttles logins to one per IP per `connection-throttle` milliseconds, defaulting to
+  // 4000. Every bot here connects from 127.0.0.1, and the suite reconnects deliberately -- the
+  // kicked-player test alone opens three connections in a few seconds. Left at the default, the
+  // next connection is silently refused and surfaces as a bot that takes tens of seconds to
+  // spawn, or does not spawn at all. Written before first boot so the server never generates the
+  // default.
+  fs.writeFileSync(
+    path.join(serverDir, 'bukkit.yml'),
+    'settings:\n  connection-throttle: -1\n',
+  );
+
   // bStats phones home on a timer. Off, so a test run makes no outbound metrics calls.
   const bstatsDir = path.join(pluginsDir, 'bStats');
   fs.mkdirSync(bstatsDir, { recursive: true });
