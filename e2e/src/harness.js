@@ -67,14 +67,32 @@ export async function openSession() {
   const bot = await createBot();
   await run(rcon, `gamemode survival ${bot.username}`);
 
-  return {
+  const session = {
     rcon,
     bot,
     async close() {
-      try { bot.quit(); } catch { /* already gone */ }
+      // Reads session.bot rather than closing over the original, because a test that has to
+      // reconnect (see the kicked-player test) replaces it. Closing the wrong one leaves an
+      // open socket, and an open socket keeps Node's event loop alive -- the tests all pass
+      // and then the process simply never exits.
+      try { session.bot?.quit(); } catch { /* already gone */ }
       try { await rcon.end(); } catch { /* already gone */ }
     },
   };
+
+  return session;
+}
+
+/**
+ * Reconnect the session's bot, for tests that have to disconnect it.
+ *
+ * Only one bot can hold the username at a time, so a test cannot simply open a second session.
+ */
+export async function replaceBot(session) {
+  try { session.bot?.quit(); } catch { /* already gone */ }
+  session.bot = await createBot();
+  await run(session.rcon, `gamemode survival ${session.bot.username}`);
+  return session.bot;
 }
 
 /**
@@ -88,6 +106,14 @@ export async function resetPlayer(rcon, bot, { keepInventory = false } = {}) {
 
   await run(rcon, `gamerule keepInventory ${keepInventory}`);
   await run(rcon, `gamemode survival ${name}`);
+
+  // Refill the food bar. There is no vanilla command that sets it, but saturation restores it
+  // immediately, so a one-second pulse followed by clearing every effect gets there. Without
+  // this, a test that leaves the bot hungry -- which is exactly what the hunger effect does --
+  // silently sets the starting state for the next one.
+  await run(rcon, `effect give ${name} minecraft:saturation 1 255 true`);
+  await waitUntil(bot, () => bot.food === 20, { label: 'the bot to be fully fed' });
+
   await run(rcon, `effect clear ${name}`);
   await run(rcon, `clear ${name}`);
   await run(rcon, `xp set ${name} 0 points`);
