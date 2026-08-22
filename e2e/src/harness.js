@@ -12,6 +12,16 @@ import { connectRcon, groundExperience, groundItems, run, tick } from './rcon.js
  * very items the test is trying to count and the conservation check becomes a race.
  */
 export const ARENA = { x: 1000.5, y: 101, z: 1000.5 };
+
+/**
+ * An item reserved across the whole suite as a control: stackable, no durability, and a member
+ * of no material group, so no rule can match it by group and no test should ever name it in a
+ * filter.
+ *
+ * Its job is to be the thing that was supposed to be left alone. See "Assert absence, not just
+ * presence" in the README.
+ */
+export const CANARY_ITEM = 'paper';
 const PLATFORM_Y = 100;
 
 /**
@@ -100,6 +110,8 @@ export async function resetPlayer(rcon, bot, { keepInventory = false } = {}) {
  * @param items array of `{ name, count }`, using plain material names ("diamond").
  */
 export async function give(rcon, bot, items) {
+  const before = totalOf(inventoryCounts(bot));
+
   for (const { name, count } of items) {
     // eslint-disable-next-line no-await-in-loop
     const response = await run(rcon, `give ${bot.username} minecraft:${name} ${count}`);
@@ -112,8 +124,11 @@ export async function give(rcon, bot, items) {
   for (const { name, count } of items) expected.set(name, (expected.get(name) ?? 0) + count);
   const expectedTotal = totalOf(expected);
 
-  await waitUntil(bot, () => totalOf(inventoryCounts(bot)) === expectedTotal, {
-    label: `bot to receive ${expectedTotal} items`,
+  // Wait on the increase rather than the total, so this works on an inventory that already
+  // holds something -- handing the bot a second, pristine copy of an item it is already
+  // carrying is the whole technique behind the side-effect tests.
+  await waitUntil(bot, () => totalOf(inventoryCounts(bot)) >= before + expectedTotal, {
+    label: `bot to receive ${expectedTotal} more items`,
   });
 
   return expected;
