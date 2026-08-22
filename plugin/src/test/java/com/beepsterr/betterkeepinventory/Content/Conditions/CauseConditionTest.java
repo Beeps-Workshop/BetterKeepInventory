@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.Content.Conditions;
 
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
@@ -50,18 +51,18 @@ class CauseConditionTest {
     @Test
     void matchesConfiguredCause() {
         PlayerMock player = playerKilledBy(DamageCause.LAVA);
-        assertTrue(condition("LAVA", "FIRE").check(player, null, null, new NoopLogger()));
+        assertTrue(condition("LAVA", "FIRE").check(TestContexts.death(player)));
     }
 
     @Test
     void doesNotMatchOtherCause() {
         PlayerMock player = playerKilledBy(DamageCause.FALL);
-        assertFalse(condition("LAVA", "FIRE").check(player, null, null, new NoopLogger()));
+        assertFalse(condition("LAVA", "FIRE").check(TestContexts.death(player)));
     }
 
     @Test
     void noDamageCauseDoesNotMatch() {
         PlayerMock player = server.addPlayer(); // never took damage
-        assertFalse(condition("LAVA").check(player, null, null, new NoopLogger()));
+        assertFalse(condition("LAVA").check(TestContexts.death(player)));
     }
 }

@@ -114,3 +114,5 @@ run/
 /_dev_server/
 /scripts/build_server_jar/jars/
 /scripts/run_dev_server/server/
+/e2e/node_modules/
+/e2e/.server/

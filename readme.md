@@ -1,6 +1,6 @@
-# BetterKeepInventory 2.0
+# BetterKeepInventory 3.0
 [![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.spiget.org%2Fv2%2Fresources%2F93081&query=downloads&logo=spigotmc&label=Downloads&color=%23ED8106)](https://www.spigotmc.org/resources/betterkeepinventory.93081/)
-[![Discord](https://img.shields.io/discord/850836877924761610?label=BeepSterr's%20Workshop&color=%239191c9)](https://leafcat.live/discord)
+[![Discord](https://img.shields.io/discord/850836877924761610?label=BeepSterr's%20Workshop&color=%239191c9)](https://beepsterr.com/discord)
 
 Take control of KeepInventory.
 No longer shall your players jump into lava to get home. Weep they shall, for the mercy of their benevolent admins.
@@ -8,17 +8,17 @@ No longer shall your players jump into lava to get home. Weep they shall, for th
 *(This plugin lets take fine grained control over KeepInventory, choosing to drop certain items, damage durability and many more effects)*
 
 ## Downloads
-The plugin can be obtained via [Modrinth](https://modrinth.com/plugin/betterkeepinventory)
+The plugin can be downloaded via [Modrinth](https://modrinth.com/plugin/betterkeepinventory) or [Curseforge](https://www.curseforge.com/minecraft/bukkit-plugins/betterkeepinventory) 
 
 ## Supported Versions
 BetterKeepInventory supports the latest 3 major Minecraft versions, and is compiled using the native Java version of the oldest supported Minecraft version.
 
-| Minecraft Version | Plugin Version                                                         | Java Version |
-|-------------------|------------------------------------------------------------------------|--------------|
-| 1.16 and below    | [1.3](https://modrinth.com/plugin/betterkeepinventory/version/1.3)     | 11           |
-| 1.17, 1.18        | [1.6.2](https://modrinth.com/plugin/betterkeepinventory/version/1.6.2) | 16           |
-| 1.19-1.20         | [2.2.0](https://modrinth.com/plugin/betterkeepinventory/version/2.2.0) | 17           |
-| 1.21+             | [Latest](https://modrinth.com/plugin/betterkeepinventory/versions)     | 21           |
+| Minecraft Version | Plugin Version                                                         | Minimum Java Version |
+|-------------------|------------------------------------------------------------------------|----------------------|
+| 1.16 and below    | [1.3](https://modrinth.com/plugin/betterkeepinventory/version/1.3)     | 11                   |
+| 1.17, 1.18        | [1.6.2](https://modrinth.com/plugin/betterkeepinventory/version/1.6.2) | 16                   |
+| 1.19-1.20         | [2.2.0](https://modrinth.com/plugin/betterkeepinventory/version/2.2.0) | 17                   |
+| 1.21+             | [Latest](https://modrinth.com/plugin/betterkeepinventory/versions)     | 21                   |
 
 > [!NOTE]  
 > Older versions can contain bugs that are not present in the latest version. I Recommend always running the latest minecraft version so you can benefit from the most recent plugins. You can always use a plugin like [ViaBackwards](https://www.spigotmc.org/resources/viabackwards.27448/) to allow players on older versions to connect to your server.
@@ -28,11 +28,10 @@ The latest and stable version of BetterKeepInventory is not always the same vers
 Set your `notify_channel` to `stable` to receive notifications whenever the stable version is newer than the version you have installed.
 
 ### Snapshots
-Snapshots are for those who like to live on the edge (or are waiting for specific changes)
-They contain the latest changes and are not guaranteed to be stable. You can find snapshot builds [Here](https://github.com/BeepSterr/BetterKeepInventory/actions/workflows/build_snapshot.yml)
+Snapshots are in-development builds of the plugin, they are compiled daily and distributed in the [Supporter Discord](https://ko-fi.com/sterr).
 
 ## Having Trouble?
-Please either create a issue here on GitHub or join the [Discord](https://discord.gg/fFvFXPvtty) for chat support
+Please join the [Discord](https://discord.gg/fFvFXPvtty) for support
 
 ## Developer API
 BetterKeepInventory exposes a API to allow other plugins to extend its features.

@@ -2,6 +2,7 @@ package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.MemoryConfiguration;
@@ -67,7 +68,7 @@ class CommandEffectTest {
 
     @Test
     void consoleCommandRunsWithPlaceholdersSubstituted() {
-        effect("capture %player%", "CONSOLE").onDeath(player, null, new NoopLogger());
+        effect("capture %player%", "CONSOLE").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(3); // dispatch is scheduled one tick out
 
         assertEquals(1, captured.size(), "the configured command should have been dispatched once");
@@ -76,7 +77,7 @@ class CommandEffectTest {
 
     @Test
     void playerExecutorRunsCommandWithPlaceholdersSubstituted() {
-        effect("capture %player%", "PLAYER").onDeath(player, null, new NoopLogger());
+        effect("capture %player%", "PLAYER").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(3); // dispatch is scheduled one tick out
 
         assertEquals(1, captured.size(), "the configured command should have been dispatched once as the player");
@@ -85,7 +86,7 @@ class CommandEffectTest {
 
     @Test
     void playerExecutorRunsOnRespawnCommands() {
-        respawnEffect("capture %player% %world%", "PLAYER").onRespawn(player, null, new NoopLogger());
+        respawnEffect("capture %player% %world%", "PLAYER").onRespawn(TestContexts.respawn(player, null));
         server.getScheduler().performTicks(3);
 
         assertEquals(1, captured.size(), "on_respawn command should have been dispatched once");
@@ -96,7 +97,7 @@ class CommandEffectTest {
 
     @Test
     void supportsMultipleCoordinatePlaceholders() {
-        effect("capture %world% %x% %y% %z%", "CONSOLE").onDeath(player, null, new NoopLogger());
+        effect("capture %world% %x% %y% %z%", "CONSOLE").onDeath(TestContexts.death(player));
         server.getScheduler().performTicks(3);
 
         assertEquals(1, captured.size());

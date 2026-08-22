@@ -1,20 +1,16 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
-import com.beepsterr.betterkeepinventory.Library.Utilities;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
+import com.beepsterr.betterkeepinventory.api.Utilities;
 import com.beepsterr.betterkeepinventory.api.Effect;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 /**
  * Effect that executes commands on death and/or respawn.
@@ -40,8 +36,6 @@ public class CommandEffect implements Effect {
     private final List<String> onRespawnCommands;
     private final Executor executor;
 
-    private static final Map<UUID, Location> deathLocations = new HashMap<>();
-
     public CommandEffect(ConfigurationSection config) {
         this.onDeathCommands = Utilities.ConfigList(config, "on_death");
         this.onRespawnCommands = Utilities.ConfigList(config, "on_respawn");
@@ -49,24 +43,18 @@ public class CommandEffect implements Effect {
     }
 
     @Override
-    public void onDeath(Player ply, PlayerDeathEvent event, LoggerInterface logger) {
-        // Store death location for respawn commands
-        deathLocations.put(ply.getUniqueId(), ply.getLocation().clone());
-
+    public void onDeath(DeathContext ctx) {
         for (String command : onDeathCommands) {
-            executeCommand(ply, command, ply.getLocation(), event);
+            executeCommand(ctx.player(), command, ctx.deathLocation(), ctx.deathEvent());
         }
     }
 
     @Override
-    public void onRespawn(Player ply, PlayerRespawnEvent event, LoggerInterface logger) {
-        Location deathLoc = deathLocations.remove(ply.getUniqueId());
-        if (deathLoc == null) {
-            deathLoc = ply.getLocation();
-        }
-
+    public void onRespawn(DeathContext ctx) {
+        // The coordinate placeholders mean where they died, in both phases -- which is why the
+        // location comes off the context rather than from a static map this effect used to keep.
         for (String command : onRespawnCommands) {
-            executeCommand(ply, command, deathLoc, null);
+            executeCommand(ctx.player(), command, ctx.deathLocation(), null);
         }
     }
 

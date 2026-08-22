@@ -1,22 +1,27 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
-import com.beepsterr.betterkeepinventory.Library.Utilities;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
-import com.beepsterr.betterkeepinventory.api.Types.MaterialList;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
 import com.beepsterr.betterkeepinventory.api.Effect;
+import com.beepsterr.betterkeepinventory.api.Types.MaterialList;
 import com.beepsterr.betterkeepinventory.api.Types.SlotType;
+import com.beepsterr.betterkeepinventory.api.Utilities;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+/**
+ * Moves items from what the player keeps to what hits the ground.
+ * <p>
+ * Nothing is spawned here. The effect only rearranges the two buckets on the context; the
+ * application step at the end of the death is what hands the result to the world.
+ */
 public class DropItemEffect implements Effect {
 
     public enum Mode {
@@ -46,74 +51,44 @@ public class DropItemEffect implements Effect {
     }
 
     @Override
-    public void onRespawn(Player ply, PlayerRespawnEvent event, LoggerInterface logger) {
+    public void onRespawn(DeathContext ctx) {
         // Nothing on respawn
     }
 
     @Override
-    public void onDeath(Player ply, PlayerDeathEvent event, LoggerInterface logger) {
+    public void onDeath(DeathContext ctx) {
+
         BetterKeepInventory plugin = BetterKeepInventory.getInstance();
+        Player ply = ctx.player();
         Random rng = plugin.rng;
 
         List<Integer> dropSlots = this.slots.getSlotIds();
         List<Material> dropItems = items.getMaterials();
 
-        for (int i = 0; i < ply.getInventory().getSize(); i++) {
+        ItemStack[] inventory = ctx.inventory();
 
-            var item = ply.getInventory().getItem(i);
-            if(item == null) continue;
+        for (int i = 0; i < inventory.length; i++) {
 
-            var meta = item.getItemMeta();
+            ItemStack item = inventory[i];
+            if (item == null || item.getType().isAir()) continue;
 
-            // Check the filters
-            if (!dropItems.isEmpty() && !dropItems.contains(item.getType())){
-                plugin.debug(ply, "Drop skipped due to item filter: " + item.getType());
-                continue;
-            };
-            if (!dropSlots.isEmpty() && !dropSlots.contains(i)){
-                plugin.debug(ply, "Drop skipped due to slot filter: " + item.getType() + " at slot " + i);
-                continue;
-            };
+            if (!matchesFilters(plugin, ply, item, i, dropItems, dropSlots)) continue;
 
-            if(meta != null){
-                if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(meta.getDisplayName(), nameFilters)){
-                    plugin.debug(ply, "Drop skipped due to name filter: " + item.getType() + " with name " + meta.getDisplayName());
-                    continue;
-                };
-                if(meta.getLore() != null){
-                    boolean loreFilterMatched = false;
-                    for( String lore : meta.getLore()){
-                        if (!loreFilters.isEmpty() && !Utilities.advancedStringCompare(lore, loreFilters)) {
-                            plugin.debug(ply, "Drop skipped due to lore filter: " + item.getType() + " with lore " + lore);
-                            loreFilterMatched = true;
-                        }
-                    }
-                    if(loreFilterMatched){
-                        continue;
-                    }
-                }
-            }
-
-
-            // Drop all
             if (mode == Mode.ALL) {
-                ply.getWorld().dropItemNaturally(ply.getLocation(), item);
-                ply.getInventory().setItem(i, null);
+                ctx.drops().add(item);
+                inventory[i] = null;
                 continue;
             }
 
             int inventoryCount = item.getAmount();
-            int removalCount = 0;
-
-            switch (mode) {
-                case SIMPLE -> removalCount = (int) (min + (max - min) * rng.nextDouble());
-                case PERCENTAGE -> {
-                    double percentage = min + (max - min) * rng.nextDouble();
-                    removalCount = (int) (inventoryCount * (percentage / 100.0));
-                }
-            }
+            int removalCount = switch (mode) {
+                case SIMPLE -> (int) (min + (max - min) * rng.nextDouble());
+                case PERCENTAGE -> (int) (inventoryCount * ((min + (max - min) * rng.nextDouble()) / 100.0));
+                default -> 0;
+            };
 
             if (removalCount <= 0) continue;
+            if (removalCount > inventoryCount) removalCount = inventoryCount;
 
             Map<String, String> replacements = new HashMap<>();
             replacements.put("amount", String.valueOf(removalCount));
@@ -122,22 +97,47 @@ public class DropItemEffect implements Effect {
 
             plugin.debug(ply, "DropItemEffect: Dropping " + removalCount + " items from slot " + i + " (" + item.getType() + ")");
 
-            if (inventoryCount - removalCount < 0) {
-                removalCount = inventoryCount;
-            }
-
-            if (removalCount == 0) continue;
-
-            var itemClone = item.clone();
-            itemClone.setAmount(removalCount);
-            ply.getWorld().dropItemNaturally(ply.getLocation(), itemClone);
+            ItemStack moved = item.clone();
+            moved.setAmount(removalCount);
+            ctx.drops().add(moved);
 
             if (inventoryCount - removalCount == 0) {
-                ply.getInventory().setItem(i, null);
+                inventory[i] = null;
             } else {
                 item.setAmount(inventoryCount - removalCount);
-                ply.getInventory().setItem(i, item);
             }
         }
+    }
+
+    private boolean matchesFilters(BetterKeepInventory plugin, Player ply, ItemStack item, int slot,
+                                   List<Material> dropItems, List<Integer> dropSlots) {
+
+        if (!dropItems.isEmpty() && !dropItems.contains(item.getType())) {
+            plugin.debug(ply, "Drop skipped due to item filter: " + item.getType());
+            return false;
+        }
+        if (!dropSlots.isEmpty() && !dropSlots.contains(slot)) {
+            plugin.debug(ply, "Drop skipped due to slot filter: " + item.getType() + " at slot " + slot);
+            return false;
+        }
+
+        var meta = item.getItemMeta();
+        if (meta == null) return true;
+
+        if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(meta.getDisplayName(), nameFilters)) {
+            plugin.debug(ply, "Drop skipped due to name filter: " + item.getType() + " with name " + meta.getDisplayName());
+            return false;
+        }
+
+        if (meta.getLore() != null && !loreFilters.isEmpty()) {
+            for (String lore : meta.getLore()) {
+                if (!Utilities.advancedStringCompare(lore, loreFilters)) {
+                    plugin.debug(ply, "Drop skipped due to lore filter: " + item.getType() + " with lore " + lore);
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 }

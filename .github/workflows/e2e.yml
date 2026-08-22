@@ -1,0 +1,76 @@
+name: End-to-end Tests
+
+# Boots a real Paper server with the plugin installed and drives it with a headless bot.
+# Covers what MockBukkit cannot reach: real death mechanics, the keepInventory gamerule
+# interaction, and where items and experience actually end up.
+#
+# The invariant that justifies the runtime: items kept plus items on the ground must equal
+# items carried, across every default_behavior and gamerule combination. That is what the
+# 2.3.2 dupe bug violated.
+# .github/workflows/e2e.yml
+on:
+  # Called by the release and snapshot workflows, which gate on it -- so a build that would ship
+  # a dupe or lose items cannot publish.
+  workflow_call:
+  # Every merge, so a failure is attributable to one merge rather than to whatever accumulated
+  # since the last nightly.
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# Deliberately not on pull_request. Booting Paper is ~3.5 minutes, which is a lot of friction on
+# every push to a branch; the merge and the nightly both cover it, and releases cannot ship
+# without it. Run it by hand from the Actions tab when a change warrants it.
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    # A hung bot or a server that never finishes booting would otherwise sit until the
+    # job-level default. A full run is ~1 minute.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Read from e2e/.nvmrc so a local `nvm use` and CI cannot drift apart.
+          node-version-file: e2e/.nvmrc
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Build the plugin
+        run: mvn -B --no-transfer-progress -DskipTests package
+
+      - name: Download Paper
+        run: ./scripts/get_paper_jar.sh paper 1.21.8
+
+      - name: Install e2e dependencies
+        # ci rather than install: the lockfile is committed precisely because mineflayer
+        # tracks protocol versions and a drifting version would look like a plugin regression.
+        working-directory: e2e
+        run: npm ci
+
+      - name: Run end-to-end tests
+        working-directory: e2e
+        run: npm test
+
+      - name: Upload server log
+        # The console log is the only way to tell a plugin failure from a server that never
+        # came up, so keep it when something goes wrong.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paper-console-log
+          path: e2e/.server/console.log
+          if-no-files-found: warn

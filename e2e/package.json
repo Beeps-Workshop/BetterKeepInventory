@@ -1,0 +1,19 @@
+{
+  "name": "betterkeepinventory-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end tests for BetterKeepInventory against a real Paper server.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "test": "node run.js",
+    "test:keep-server": "node run.js --keep-server",
+    "server": "node run.js --server-only"
+  },
+  "dependencies": {
+    "mineflayer": "^4.34.0",
+    "rcon-client": "^4.2.5"
+  }
+}

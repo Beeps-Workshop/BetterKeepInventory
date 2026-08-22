@@ -2,12 +2,10 @@ package com.beepsterr.betterkeepinventory.Content.Effects.Vault;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Depends.Vault;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
 import com.beepsterr.betterkeepinventory.api.Effect;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,12 +30,14 @@ public class VaultEffect implements Effect {
     }
 
     @Override
-    public void onRespawn(Player ply, PlayerRespawnEvent event, LoggerInterface logger) {
+    public void onRespawn(DeathContext ctx) {
         // noop
     }
 
     @Override
-    public void onDeath(Player ply, PlayerDeathEvent event, LoggerInterface logger) {
+    public void onDeath(DeathContext ctx) {
+        Player ply = ctx.player();
+
         Vault vault = new Vault(BetterKeepInventory.getInstance());
         BetterKeepInventory plugin = BetterKeepInventory.getInstance();
         Random rng = plugin.rng;

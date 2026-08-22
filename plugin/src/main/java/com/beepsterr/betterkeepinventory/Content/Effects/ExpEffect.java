@@ -1,18 +1,20 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
 import com.beepsterr.betterkeepinventory.api.Effect;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.ExperienceOrb;
-import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 
+/**
+ * Moves experience between what the player keeps and what hits the ground.
+ * <p>
+ * Nothing is spawned here; the application step at the end of the death turns
+ * {@link DeathContext#droppedExp()} into an orb.
+ */
 public class ExpEffect implements Effect {
 
     public enum Mode {
@@ -36,62 +38,83 @@ public class ExpEffect implements Effect {
     }
 
     @Override
-    public void onRespawn(Player ply, PlayerRespawnEvent event, LoggerInterface logger) {
+    public void onRespawn(DeathContext ctx) {
         // Nothing on respawn
     }
 
     @Override
-    public void onDeath(Player ply, PlayerDeathEvent event, LoggerInterface logger) {
+    public void onDeath(DeathContext ctx) {
+
         BetterKeepInventory plugin = BetterKeepInventory.getInstance();
         Random rng = plugin.rng;
 
-        int playerExpLevel = ply.getLevel();
+        int currentLevels = ctx.levels();
         int levelsToLose = switch (mode) {
             case SIMPLE -> (int) (min + (max - min) * rng.nextDouble());
-            case PERCENTAGE -> (int) (playerExpLevel * ((min + (max - min) * rng.nextDouble()) / 100.0));
-            case ALL -> playerExpLevel;
+            case PERCENTAGE -> (int) (currentLevels * ((min + (max - min) * rng.nextDouble()) / 100.0));
+            case ALL -> currentLevels;
         };
 
-        plugin.debug(ply, "is losing " + levelsToLose + " levels of experience.");
+        plugin.debug(ctx.player(), "is losing " + levelsToLose + " levels of experience.");
 
-        Map<String, String> replacements = new HashMap<>();
-        replacements.put("amount", String.valueOf(Math.min(levelsToLose, playerExpLevel)));
-
-        if(levelsToLose < 1){
+        if (levelsToLose < 1 && mode != Mode.ALL) {
             return;
         }
 
+        int newLevels = Math.max(0, currentLevels - levelsToLose);
+
+        // Progress survives losing levels. It used to be zeroed unconditionally, so a player at
+        // level 30 with 90% of the way to 31 silently lost that 90% to any exp effect. Losing
+        // *everything* is the one case where there is no partial level left to keep.
+        boolean losingEverything = mode == Mode.ALL || newLevels == 0;
+        float keptProgress = losingEverything ? 0f : ctx.progress();
+
+        Map<String, String> replacements = new HashMap<>();
+        replacements.put("amount", String.valueOf(Math.min(levelsToLose, currentLevels)));
+
         switch (how) {
             case DELETE -> {
-                ply.setLevel(playerExpLevel - levelsToLose);
-                ply.setExp(0);
-                plugin.config.sendMessage(ply, "effects.exp_loss", replacements);
+                ctx.setLevels(newLevels);
+                ctx.setProgress(keptProgress);
+                plugin.config.sendMessage(ctx.player(), "effects.exp_loss", replacements);
             }
             case DROP -> {
-                float expToDrop;
-                if (playerExpLevel <= levelsToLose) {
-                    expToDrop = getExpAtLevel(playerExpLevel) + ply.getExp();
-                    ply.setLevel(0);
-                    ply.setExp(0);
-                } else {
-                    expToDrop = getExpAtLevel(playerExpLevel) - getExpAtLevel(playerExpLevel - levelsToLose);
-                    ply.setLevel(playerExpLevel - levelsToLose);
-                    ply.setExp(0);
-                }
+                int pointsBefore = totalPoints(currentLevels, ctx.progress());
+                int pointsAfter = totalPoints(newLevels, keptProgress);
+                int pointsToDrop = Math.max(0, pointsBefore - pointsAfter);
 
-                plugin.debug(ply, "dropping " + expToDrop + " experience points.");
+                ctx.setLevels(newLevels);
+                ctx.setProgress(keptProgress);
 
-                int points = Math.round(expToDrop);
-                if (points > 0) {
-                    ExperienceOrb orb = ply.getWorld().spawn(ply.getLocation(), ExperienceOrb.class);
-                    orb.setExperience(points);
-                    plugin.config.sendMessage(ply, "effects.exp_dropped", replacements);
+                if (pointsToDrop > 0) {
+                    ctx.setDroppedExp(ctx.droppedExp() + pointsToDrop);
+                    plugin.debug(ctx.player(), "dropping " + pointsToDrop + " experience points.");
+                    plugin.config.sendMessage(ctx.player(), "effects.exp_dropped", replacements);
                 }
             }
         }
     }
 
-    private int getExpAtLevel(int level) {
+    /**
+     * Total experience points held at a given level plus partial progress toward the next.
+     * <p>
+     * The partial level has to be converted through {@link #pointsToNextLevel} rather than added
+     * straight on: progress is a 0..1 fraction, and a fraction of a level is worth a different
+     * number of points at level 5 than at level 50.
+     */
+    static int totalPoints(int level, float progress) {
+        return getExpAtLevel(level) + Math.round(progress * pointsToNextLevel(level));
+    }
+
+    /** Points required to go from {@code level} to {@code level + 1}. */
+    static int pointsToNextLevel(int level) {
+        if (level <= 15) return 2 * level + 7;
+        if (level <= 30) return 5 * level - 38;
+        return 9 * level - 158;
+    }
+
+    /** Total points accumulated to reach {@code level} from zero. */
+    static int getExpAtLevel(int level) {
         if (level <= 16) return level * level + 6 * level;
         if (level <= 31) return (int) (2.5 * level * level - 40.5 * level + 360);
         return (int) (4.5 * level * level - 162.5 * level + 2220);

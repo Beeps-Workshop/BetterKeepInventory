@@ -18,6 +18,7 @@ import com.beepsterr.betterkeepinventory.Library.NestedLogBuilder;
 import com.beepsterr.betterkeepinventory.Library.Versions.Version;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChannel;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChecker;
+import com.beepsterr.betterkeepinventory.Library.PendingDeaths;
 import com.beepsterr.betterkeepinventory.Registries.PluginConditionRegistry;
 import com.beepsterr.betterkeepinventory.Registries.PluginEffectRegistry;
 import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
@@ -48,8 +49,11 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
     public Debugger debugger = new Debugger();
 
     // Plugin Registries
-    private final PluginConditionRegistry conditionRegistry = new PluginConditionRegistry();
-    private final PluginEffectRegistry effectRegistry = new PluginEffectRegistry();
+    /** Deaths waiting for their respawn phase. */
+    public final PendingDeaths pendingDeaths = new PendingDeaths();
+
+    private final PluginConditionRegistry conditionRegistry = new PluginConditionRegistry(this);
+    private final PluginEffectRegistry effectRegistry = new PluginEffectRegistry(this);
 
 
     @Override
@@ -76,6 +80,15 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
             CrashAndDisable("Configuration failed to load!\n" + e.getMessage());
             return;
         }
+
+        // Rebuild the rule tree whenever an addon adds or removes a condition or effect. Plugins
+        // can be enabled and disabled at any time, so this cannot just happen once at startup.
+        conditionRegistry.setChangeListener(this::onRegistrationsChanged);
+        effectRegistry.setChangeListener(this::onRegistrationsChanged);
+
+        // Our own conditions and effects are registered above, so the tree can be built now.
+        // Addons enable after us and will invalidate it again through the listeners.
+        config.buildRules(nlb);
 
         // event handlers
         getServer().getPluginManager().registerEvents(new OnPlayerDeath(this), this);
@@ -113,6 +126,12 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
         // Cancel version checks (not sure if needed in onDisable? but can't hurt. (hopefully))
         if(versionChecker != null){
             versionChecker.CancelCheck();
+        }
+    }
+
+    private void onRegistrationsChanged() {
+        if (config != null) {
+            config.invalidateRules();
         }
     }
 

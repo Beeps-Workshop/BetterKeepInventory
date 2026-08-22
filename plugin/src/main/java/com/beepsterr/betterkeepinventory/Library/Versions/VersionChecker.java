@@ -2,88 +2,261 @@ package com.beepsterr.betterkeepinventory.Library.Versions;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.tcoded.folialib.FoliaLib;
+import com.tcoded.folialib.enums.ImplementationType;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
 import org.bukkit.Bukkit;
-import java.io.*;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
+/**
+ * Tells the server about versions it can actually run.
+ * <p>
+ * Modrinth already knows which Minecraft versions and server software each release supports, so
+ * the check asks it for compatible versions rather than comparing version numbers and hoping.
+ * The previous implementation compared numbers alone, which meant a 1.18 server was told that
+ * the newest release -- needing Minecraft 1.21 and Java 21 -- was available to it. Following
+ * that advice broke the server.
+ * <p>
+ * That failure mode is the reason this has to be right in any release that ships: the update
+ * checker is the only thing that tells anyone a fix exists, so a broken one cannot deliver its
+ * own repair. Everybody left on that version keeps getting the wrong advice indefinitely.
+ */
 public class VersionChecker {
 
-    public static final String URL_STABLE = "https://raw.githubusercontent.com/BeepSterr/BetterKeepInventory/refs/heads/master/versions/stable.txt";
-    public static final String URL_SNAPSHOT = "https://api.github.com/repos/beepsterr/BetterKeepInventory/actions/artifacts";
-    public static final String URL_LATEST = "https://api.spigotmc.org/legacy/update.php?resource=93081";
+    private static final String PROJECT = "betterkeepinventory";
+    private static final String VERSIONS_API = "https://api.modrinth.com/v2/project/" + PROJECT + "/version";
 
-    public Version foundVersion;
-    public VersionChannel channel;
+    public static final String URL_RECOMMENDED =
+            "https://raw.githubusercontent.com/Beeps-Workshop/BetterKeepInventory/refs/heads/master/versions/recommended.txt";
+
+    /** Modrinth asks for a contact address so it can reach maintainers about API misuse. */
+    private static final String USER_AGENT = "Beeps-Workshop/BetterKeepInventory (hello@beeps.email)";
+
+    private static final long CHECK_INTERVAL_TICKS = 20L * 14400; // every 4 hours
+
+    /**
+     * What to tell people about, or null.
+     * <p>
+     * The parsed version and the string Modrinth knows it by travel together, so a caller cannot
+     * read one and then find the other has changed underneath it -- and so the download link
+     * carries Modrinth's own spelling rather than whatever {@link Version#toString()} renders,
+     * which would 404 the moment the two disagreed.
+     */
+    public record Update(Version version, String versionNumber) {
+
+        /** The page for this exact version, rather than the list of all of them. */
+        public String downloadUrl() {
+            return "https://modrinth.com/plugin/" + PROJECT + "/version/" + versionNumber;
+        }
+
+        @Override
+        public String toString() {
+            return version.toString();
+        }
+    }
+
+    /** Written on the checker thread, read from the command thread. */
+    public volatile Update found;
+
+    public final VersionChannel channel;
+
+    private WrappedTask task;
+
     public VersionChecker(VersionChannel channel) {
         this.channel = channel;
 
-        BetterKeepInventory.getScheduler().getScheduler().runTimerAsync(() -> {
+        if (channel == VersionChannel.NONE) {
+            return;
+        }
+
+        this.task = BetterKeepInventory.getScheduler().getScheduler().runTimerAsync(() -> {
             try {
-                foundVersion = getLatestVersion(channel);
+                found = getLatestVersion(channel);
             } catch (IOException e) {
                 BetterKeepInventory.getInstance().log("Failed to check for updates: " + e.getMessage());
             }
-        }, 0L, 20L * 14400); // Using every 4 hours
+        }, 0L, CHECK_INTERVAL_TICKS);
+    }
+
+    /**
+     * The version worth telling people about, or null if there is nothing newer.
+     * <p>
+     * Callers must use this rather than asking whether an update exists and then reading
+     * {@link #foundVersion} separately: the checker runs on its own thread and can null the
+     * field between those two reads, which the caller then dereferences. That became reachable
+     * once a check could legitimately find nothing -- STABLE returns null whenever no compatible
+     * version is on the recommended list.
+     */
+    public Update getAvailableUpdate() {
+        Update update = found;
+        if (update == null) return null;
+        return update.version().compareTo(BetterKeepInventory.getInstance().version) > 0 ? update : null;
     }
 
     public boolean IsUpdateAvailable() {
-        if (foundVersion == null) return false;
-        Version current = BetterKeepInventory.getInstance().version;
-        return foundVersion.compareTo(current) > 0;
+        return getAvailableUpdate() != null;
     }
 
-    private static Version getLatestFromUrl(String urlStr) throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
-        conn.setRequestProperty("User-Agent", "BetterKeepInventory-VersionChecker");
-
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-            String line = in.readLine();
-            BetterKeepInventory.getInstance().log("Update checker found version: " + line);
-            return new Version(line);
+    /**
+     * Stop checking.
+     * <p>
+     * Cancels this timer specifically. It used to call {@code cancelAllTasks()}, which took down
+     * every scheduled task the plugin owned -- including the delayed work effects rely on, so a
+     * {@code /bki reload} during a death cancelled the hunger, command and lightning follow-ups
+     * that were still pending.
+     */
+    public void CancelCheck() {
+        if (task != null) {
+            task.cancel();
+            task = null;
         }
     }
 
-    public static Version getLatestVersion(VersionChannel channel) throws IOException {
+    /**
+     * The newest version this server could actually install on the given channel, or null.
+     */
+    public static Update getLatestVersion(VersionChannel channel) throws IOException {
+
+        if (channel == VersionChannel.NONE) {
+            return null;
+        }
+
+        List<Candidate> candidates = fetchCompatibleVersions(allowedReleaseTypes(channel));
+        if (candidates.isEmpty()) {
+            return null;
+        }
+
+        if (channel == VersionChannel.STABLE) {
+            Set<String> recommended = fetchRecommended();
+            candidates.removeIf(candidate -> !recommended.contains(candidate.versionNumber));
+            if (candidates.isEmpty()) {
+                // Deliberately no fallback to LATEST -- see VersionChannel.STABLE.
+                return null;
+            }
+        }
+
+        Candidate best = null;
+        for (Candidate candidate : candidates) {
+            if (best == null || candidate.version.compareTo(best.version) > 0) {
+                best = candidate;
+            }
+        }
+
+        if (best == null) {
+            return null;
+        }
+
+        BetterKeepInventory.getInstance().log("Update checker found version: " + best.versionNumber);
+        return new Update(best.version, best.versionNumber);
+    }
+
+    private static Set<String> allowedReleaseTypes(VersionChannel channel) {
         return switch (channel) {
-            case SNAPSHOT -> getLatestSnapshotVersion();
-            case LATEST -> getLatestFromUrl(URL_LATEST);
-            case STABLE -> getLatestFromUrl(URL_STABLE);
-            default -> null;
+            case BETA -> Set.of("release", "beta");
+            case LATEST, STABLE -> Set.of("release");
+            case NONE -> Set.of();
         };
     }
 
-    private static Version getLatestSnapshotVersion() throws IOException {
-        HttpURLConnection conn = (HttpURLConnection) new URL(URL_SNAPSHOT).openConnection();
-        conn.setRequestProperty("User-Agent", "BetterKeepInventory-VersionChecker");
+    private record Candidate(String versionNumber, Version version) {}
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-            JsonObject obj = JsonParser.parseReader(reader).getAsJsonObject();
-            JsonArray artifacts = obj.getAsJsonArray("artifacts");
+    /**
+     * Ask Modrinth for versions matching this server's Minecraft version and software.
+     * <p>
+     * Filtering here rather than locally is the whole point: Modrinth is the thing that knows
+     * what each release supports.
+     */
+    private static List<Candidate> fetchCompatibleVersions(Set<String> releaseTypes) throws IOException {
 
-            if (artifacts == null || artifacts.size() == 0) {
-                BetterKeepInventory.getInstance().log("No artifacts found in snapshot response (?)");
-                return null;
+        String url = VERSIONS_API
+                + "?loaders=" + encodeJsonArray(serverLoader())
+                + "&game_versions=" + encodeJsonArray(minecraftVersion());
+
+        List<Candidate> candidates = new ArrayList<>();
+
+        try (BufferedReader reader = open(url)) {
+            JsonArray versions = JsonParser.parseReader(reader).getAsJsonArray();
+
+            for (JsonElement element : versions) {
+                JsonObject version = element.getAsJsonObject();
+
+                String type = version.get("version_type").getAsString();
+                if (!releaseTypes.contains(type)) continue;
+
+                String number = version.get("version_number").getAsString();
+                try {
+                    candidates.add(new Candidate(number, new Version(number)));
+                } catch (IllegalArgumentException e) {
+                    // A version numbered in some shape this plugin cannot parse is not one it
+                    // can sensibly recommend.
+                    BetterKeepInventory.getInstance().log("Ignoring unparseable version: " + number);
+                }
             }
-
-            JsonObject latest = artifacts.get(0).getAsJsonObject();
-            String name = latest.get("name").getAsString();
-            String versionName = name.replaceFirst("BetterKeepInventory-", "");
-            Version newVersion = new Version(versionName);
-
-            if(newVersion.compareTo(BetterKeepInventory.getInstance().version) > 0) {
-                BetterKeepInventory.getInstance().log("Update checker found new version: " + newVersion);
-            }
-
-            return newVersion;
         }
+
+        return candidates;
     }
 
-    public void CancelCheck() {
-        BetterKeepInventory.getScheduler().getScheduler().cancelAllTasks();
+    /** The version numbers currently considered known-good, one per line. */
+    private static Set<String> fetchRecommended() throws IOException {
+        Set<String> recommended = new HashSet<>();
 
+        try (BufferedReader reader = open(URL_RECOMMENDED)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String trimmed = line.trim();
+                if (!trimmed.isEmpty() && !trimmed.startsWith("#")) {
+                    recommended.add(trimmed);
+                }
+            }
+        }
+
+        return recommended;
+    }
+
+    private static BufferedReader open(String url) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        conn.setRequestProperty("User-Agent", USER_AGENT);
+        conn.setConnectTimeout(10_000);
+        conn.setReadTimeout(10_000);
+        return new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+    }
+
+    private static String encodeJsonArray(String value) {
+        return URLEncoder.encode("[\"" + value + "\"]", StandardCharsets.UTF_8);
+    }
+
+    /**
+     * This server's Minecraft version, as Modrinth spells it.
+     * <p>
+     * {@code getBukkitVersion()} looks like {@code 1.21.8-R0.1-SNAPSHOT} on every fork, which is
+     * why it is preferred over the Paper-only accessor.
+     */
+    static String minecraftVersion() {
+        return Bukkit.getBukkitVersion().split("-")[0];
+    }
+
+    static String serverLoader() {
+        ImplementationType type = BetterKeepInventory.getScheduler().getImplType();
+        if (type == null) return "spigot";
+
+        return switch (type) {
+            case FOLIA -> "folia";
+            case PAPER, LEGACY_PAPER -> "paper";
+            default -> "spigot";
+        };
     }
 }

@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.Content.Conditions;
 
 import com.beepsterr.betterkeepinventory.support.NoopLogger;
+import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,27 +46,27 @@ class LightLevelConditionTest {
 
     @Test
     void anyLightAlwaysInFullRange() {
-        assertTrue(condition("0..15", "ANY").check(player(), null, null, new NoopLogger()));
+        assertTrue(condition("0..15", "ANY").check(TestContexts.death(player())));
     }
 
     @Test
     void blockTypeBranch() {
-        assertTrue(condition("0..15", "BLOCK").check(player(), null, null, new NoopLogger()));
+        assertTrue(condition("0..15", "BLOCK").check(TestContexts.death(player())));
     }
 
     @Test
     void skyTypeBranch() {
-        assertTrue(condition("0..15", "SKY").check(player(), null, null, new NoopLogger()));
+        assertTrue(condition("0..15", "SKY").check(TestContexts.death(player())));
     }
 
     @Test
     void impossibleRangeNeverMatches() {
         // light never exceeds 15, so this exercises the "false" path deterministically
-        assertFalse(condition("16..20", "ANY").check(player(), null, null, new NoopLogger()));
+        assertFalse(condition("16..20", "ANY").check(TestContexts.death(player())));
     }
 
     @Test
     void defaultsToAnyOverFullRange() {
-        assertTrue(condition(null, null).check(player(), null, null, new NoopLogger()));
+        assertTrue(condition(null, null).check(TestContexts.death(player())));
     }
 }

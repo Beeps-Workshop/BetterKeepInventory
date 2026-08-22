@@ -35,6 +35,7 @@ public class Config {
     private final String hash;
     private final boolean debug;
     private final DefaultBehavior defaultBehavior;
+    private Ruleset ruleset;
 
     public Config(FileConfiguration config, NestedLogBuilder nlb) throws UnloadableConfiguration {
 
@@ -66,10 +67,21 @@ public class Config {
         }
         this.rawMessages = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "messages.yml"));
 
-        version = config.getString("version", "2.1.0");
-        notifyChannel = VersionChannel.valueOf(config.getString("notify_channel", "STABLE").toUpperCase());
-        hash = config.getString("hash", "OLD");
-        debug = config.getBoolean("debug", false);
+        // Everything below reads this.rawConfig rather than the `config` parameter. They are the
+        // same object right up until the "default" branch above swaps rawConfig for a freshly
+        // reloaded one -- after which reads from `config` see a stale file, and anything
+        // MigrateConfiguration writes is invisible to the parse that follows.
+        version = this.rawConfig.getString("version", "2.1.0");
+
+        // Before anything is read out of the file. A migration that renames or removes a value
+        // has to run first, or the parse below fails on the old spelling -- and
+        // VersionChannel.valueOf throws rather than returning a default, which would take the
+        // whole plugin down for anyone who had picked a channel that no longer exists.
+        MigrateConfiguration();
+
+        notifyChannel = VersionChannel.valueOf(this.rawConfig.getString("notify_channel", "STABLE").toUpperCase());
+        hash = this.rawConfig.getString("hash", "OLD");
+        debug = this.rawConfig.getBoolean("debug", false);
 
         try{
             LoadMessages(plugin);
@@ -77,9 +89,12 @@ public class Config {
             throw new UnloadableConfiguration(e.getMessage());
         }
 
-        MigrateConfiguration();
+        defaultBehavior = DefaultBehavior.valueOf(this.rawConfig.getString("default_behavior", "INHERIT").toUpperCase());
 
-        defaultBehavior = DefaultBehavior.valueOf(config.getString("default_behavior", "INHERIT").toUpperCase());
+        // Constructed, deliberately not built. Addons register their conditions and effects in
+        // their own onEnable, which runs after ours -- building now would parse the rules before
+        // they exist and quietly drop every rule that uses one.
+        this.ruleset = new Ruleset(this.rawConfig.getConfigurationSection("rules"));
 
         nlb.parent();
 
@@ -101,18 +116,52 @@ public class Config {
         return defaultBehavior;
     }
 
-    public List<ConfigRule> getRules(NestedLogBuilder nlb) {
-        List<ConfigRule> rules = new ArrayList<>();
-        ConfigurationSection rulesSection = this.rawConfig.getConfigurationSection("rules");
-        if (rulesSection != null) {
-            for (String ruleKey : rulesSection.getKeys(false)) {
-                ConfigurationSection ruleSection = rulesSection.getConfigurationSection(ruleKey);
-                if (ruleSection != null) {
-                    rules.add(new ConfigRule(ruleSection, null, nlb));
-                }
-            }
+    public Ruleset getRuleset() {
+        return ruleset;
+    }
+
+    /**
+     * The rules to evaluate for a death.
+     */
+    public List<ConfigRule> getRules() {
+        return ruleset.rules();
+    }
+
+    /**
+     * Build the rules now, and narrate it into {@code nlb}.
+     * <p>
+     * Used where the result is wanted immediately and in context: plugin startup, and
+     * {@code /bki reload}. Everywhere else {@link #invalidateRules()} is enough.
+     */
+    public void buildRules(NestedLogBuilder nlb) {
+        ruleset.build(nlb);
+    }
+
+    /**
+     * Mark the rules as needing a rebuild, and schedule one for the next tick.
+     * <p>
+     * Called whenever a condition or effect is registered or unregistered, which mostly happens
+     * in bursts: the plugin's own registrations at startup, then one burst per addon as it
+     * enables. Deferring to the next tick collapses each burst into a single parse instead of
+     * reparsing the whole tree once per registration.
+     * <p>
+     * The scheduled rebuild is an optimisation, not a guarantee -- {@link Ruleset#rules()}
+     * rebuilds on demand if a death gets there first.
+     */
+    public void invalidateRules() {
+
+        ruleset.invalidate();
+
+        BetterKeepInventory plugin = BetterKeepInventory.getInstance();
+        if (plugin == null || BetterKeepInventory.getScheduler() == null) {
+            return;
         }
-        return rules;
+
+        BetterKeepInventory.getScheduler().getScheduler().runNextTick(task -> {
+            if (ruleset.isStale()) {
+                ruleset.build(null);
+            }
+        });
     }
 
     public VersionChannel getNotifyChannel() {
@@ -201,7 +250,16 @@ public class Config {
 
         String installedVersion = plugin.version.major + "." + plugin.version.minor + "." + plugin.version.patch;
         if(!installedVersion.equals(this.version)){
-            // ... Create migrations here when needed
+
+            // 3.0: snapshots moved to private distribution, so the SNAPSHOT channel is gone.
+            // BETA is the closest surviving intent -- someone on SNAPSHOT was asking for
+            // pre-release builds. Without this the plugin refuses to start for them.
+            if("SNAPSHOT".equalsIgnoreCase(rawConfig.getString("notify_channel", ""))){
+                rawConfig.set("notify_channel", "BETA");
+                plugin.getLogger().info(
+                        "The SNAPSHOT update channel no longer exists; snapshots are now distributed privately. "
+                        + "Switching notify_channel to BETA.");
+            }
         }
 
 //         Migration completed, write new versions
