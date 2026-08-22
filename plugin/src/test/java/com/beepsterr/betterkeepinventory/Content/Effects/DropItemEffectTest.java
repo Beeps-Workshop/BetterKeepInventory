@@ -82,4 +82,167 @@ class DropItemEffectTest {
         assertTrue(player.getInventory().contains(Material.DIAMOND), "diamonds should be kept (not in filter)");
         assertFalse(player.getInventory().contains(Material.DIRT), "dirt should be dropped (matches filter)");
     }
+
+    // --- modes ---------------------------------------------------------------------------------
+
+    private static DropItemEffect effect(String mode, double min, double max) {
+        MemoryConfiguration cfg = new MemoryConfiguration();
+        cfg.set("mode", mode);
+        cfg.set("min", min);
+        cfg.set("max", max);
+        return new DropItemEffect(cfg);
+    }
+
+    /** How many of this material the player is left holding. */
+    private int held(Material type) {
+        int total = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == type) total += item.getAmount();
+        }
+        return total;
+    }
+
+    @Test
+    void simpleModeDropsAFixedCountFromEachStack() {
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND, 10));
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("SIMPLE", 3, 3).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(7, held(Material.DIAMOND), "3 of the 10 should have gone");
+        assertEquals(1, world.getEntitiesByClass(Item.class).size());
+    }
+
+    @Test
+    void percentageModeDropsAShareOfEachStack() {
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND, 10));
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("PERCENTAGE", 40, 40).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(6, held(Material.DIAMOND), "40% of 10 should have gone");
+    }
+
+    @Test
+    void droppingMoreThanTheStackHoldsTakesTheWholeStack() {
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND, 3));
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("SIMPLE", 99, 99).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(0, held(Material.DIAMOND), "it cannot drop more than there was");
+        assertEquals(3, world.getEntitiesByClass(Item.class).stream()
+                .mapToInt(e -> e.getItemStack().getAmount()).sum(),
+                "the whole stack should be on the floor");
+    }
+
+    @Test
+    void aZeroCountDropsNothing() {
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND, 10));
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("SIMPLE", 0, 0).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(10, held(Material.DIAMOND));
+        assertTrue(world.getEntitiesByClass(Item.class).isEmpty());
+    }
+
+    // --- filters -------------------------------------------------------------------------------
+
+    @Test
+    void slotFilterOnlyDropsFromTheListedSlots() {
+        player.getInventory().setItem(0, new ItemStack(Material.DIAMOND, 5));
+        player.getInventory().setItem(1, new ItemStack(Material.DIAMOND, 5));
+
+        MemoryConfiguration cfg = new MemoryConfiguration();
+        cfg.set("mode", "ALL");
+        cfg.set("filters.slots", java.util.List.of("0"));
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DropItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(5, held(Material.DIAMOND), "only the stack in slot 0 should have gone");
+    }
+
+    @Test
+    void nameFilterOnlyDropsMatchingNames() {
+        ItemStack named = new ItemStack(Material.DIAMOND_SWORD);
+        var meta = named.getItemMeta();
+        meta.setDisplayName("Cursed Blade");
+        named.setItemMeta(meta);
+
+        player.getInventory().setItem(0, named);
+        player.getInventory().setItem(1, new ItemStack(Material.DIAMOND_PICKAXE));
+
+        MemoryConfiguration cfg = new MemoryConfiguration();
+        cfg.set("mode", "ALL");
+        cfg.set("filters.name", java.util.List.of("*Cursed*"));
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DropItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertFalse(player.getInventory().contains(Material.DIAMOND_SWORD), "the named blade matches");
+        assertTrue(player.getInventory().contains(Material.DIAMOND_PICKAXE), "the unnamed pickaxe does not");
+    }
+
+    /**
+     * Every lore line has to match, not just one of them.
+     * <p>
+     * Pinned as-is because it is what 2.x did, but it is worth questioning: a config author
+     * writing `lore: ["*soulbound*"]` almost certainly means "has a line saying soulbound", and
+     * an item whose lore also carries a second, unrelated line will not match.
+     */
+    @Test
+    void loreFilterRequiresEveryLineToMatch() {
+        ItemStack oneLine = new ItemStack(Material.DIAMOND_SWORD);
+        var a = oneLine.getItemMeta();
+        a.setLore(java.util.List.of("Soulbound"));
+        oneLine.setItemMeta(a);
+
+        ItemStack twoLines = new ItemStack(Material.DIAMOND_PICKAXE);
+        var b = twoLines.getItemMeta();
+        b.setLore(java.util.List.of("Soulbound", "Mining tool"));
+        twoLines.setItemMeta(b);
+
+        player.getInventory().setItem(0, oneLine);
+        player.getInventory().setItem(1, twoLines);
+
+        MemoryConfiguration cfg = new MemoryConfiguration();
+        cfg.set("mode", "ALL");
+        cfg.set("filters.lore", java.util.List.of("*Soulbound*"));
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DropItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertFalse(player.getInventory().contains(Material.DIAMOND_SWORD),
+                "every line matches, so it drops");
+        assertTrue(player.getInventory().contains(Material.DIAMOND_PICKAXE),
+                "the second line does not match, so the whole item is skipped");
+    }
+
+    @Test
+    void filtersCombine() {
+        player.getInventory().setItem(0, new ItemStack(Material.DIAMOND, 5));
+        player.getInventory().setItem(1, new ItemStack(Material.COBBLESTONE, 5));
+
+        MemoryConfiguration cfg = new MemoryConfiguration();
+        cfg.set("mode", "ALL");
+        cfg.set("filters.items", java.util.List.of("DIAMOND"));
+        cfg.set("filters.slots", java.util.List.of("1"));
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DropItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(5, held(Material.DIAMOND), "diamond matches the item filter but not the slot");
+        assertEquals(5, held(Material.COBBLESTONE), "cobblestone matches the slot but not the item");
+        assertTrue(world.getEntitiesByClass(Item.class).isEmpty(), "so nothing drops");
+    }
 }
