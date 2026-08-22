@@ -39,12 +39,24 @@ export const connection = {
   rconPassword: props['rcon.password'],
 };
 
-/** The single shaded plugin jar Maven produces, ignoring the unshaded `original-` twin. */
+/**
+ * The shaded plugin jar Maven produces, ignoring the unshaded `original-` twin.
+ *
+ * Picks the most recently built rather than the first by name. A target directory that has not
+ * been cleaned since a version bump holds several, and sorting by name puts `-2.3.4` ahead of
+ * `-3.0.0` -- so the suite would quietly test the previous release and report it as green.
+ */
 export function findPluginJar() {
   const targetDir = path.join(repoRoot, 'plugin', 'target');
   if (!fs.existsSync(targetDir)) return null;
-  const match = fs.readdirSync(targetDir)
+
+  const jars = fs.readdirSync(targetDir)
     .filter((f) => f.startsWith('BetterKeepInventory-plugin-') && f.endsWith('.jar'))
-    .sort();
-  return match.length ? path.join(targetDir, match[0]) : null;
+    .map((f) => {
+      const full = path.join(targetDir, f);
+      return { full, mtime: fs.statSync(full).mtimeMs };
+    })
+    .sort((a, b) => b.mtime - a.mtime);
+
+  return jars.length ? jars[0].full : null;
 }

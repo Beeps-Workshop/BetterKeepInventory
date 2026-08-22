@@ -51,6 +51,10 @@ if [ "$PAPERMC_URL" = "null" ] || [ -z "$PAPERMC_URL" ]; then
 fi
 
 mkdir -p "$out_dir"
+# Named for the version actually downloaded, not the one asked for. When the fallback picks a
+# different version, naming it after the request produces a jar whose filename lies -- and the
+# e2e harness pins a Minecraft version, so the mismatch surfaces as opaque protocol errors from
+# the bot rather than as a wrong download.
 # -f so a failed download is an error rather than an HTML error page saved as a jar.
-curl -fL -o "$out_dir/${PROJECT}-${MINECRAFT_VERSION}.jar" "$PAPERMC_URL"
+curl -fL -o "$out_dir/${PROJECT}-${FOUND_VERSION}.jar" "$PAPERMC_URL"
 echo "Download completed (version: $FOUND_VERSION)"
