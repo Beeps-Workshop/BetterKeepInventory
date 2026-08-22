@@ -1,11 +1,14 @@
 package com.beepsterr.betterkeepinventory.support;
 
 import com.beepsterr.betterkeepinventory.Library.Config;
+import com.beepsterr.betterkeepinventory.Library.ConfigRule;
 import com.beepsterr.betterkeepinventory.Library.DeathApplication;
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
+
+import java.util.List;
 
 /**
  * Builds the {@link DeathContextImpl} that conditions and effects are driven with, so tests do
@@ -28,7 +31,15 @@ public final class TestContexts {
     }
 
     public static DeathContextImpl death(Player player, PlayerDeathEvent event, Config.DefaultBehavior behavior) {
-        return new DeathContextImpl(player, event, behavior, new NoopLogger());
+        return death(player, event, behavior, List.of());
+    }
+
+    /**
+     * A context pinned to a specific rule tree, for tests that drive rules through both phases.
+     */
+    public static DeathContextImpl death(Player player, PlayerDeathEvent event,
+                                         Config.DefaultBehavior behavior, List<ConfigRule> rules) {
+        return new DeathContextImpl(player, event, behavior, new NoopLogger(), rules);
     }
 
     /**

@@ -49,8 +49,8 @@ public class OnPlayerRespawn implements Listener {
 
         ctx.enterRespawnPhase(ply, event, nlb);
 
-        // Time to process the top level rules
-        for(ConfigRule rule : plugin.config.getRules()){
+        // The tree this death started against, not whatever is current -- see DeathContextImpl.
+        for(ConfigRule rule : ctx.rules()){
             rule.trigger(ctx);
         }
 

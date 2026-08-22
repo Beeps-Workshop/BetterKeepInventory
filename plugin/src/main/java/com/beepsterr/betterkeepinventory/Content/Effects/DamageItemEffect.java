@@ -59,54 +59,41 @@ public class DamageItemEffect implements Effect {
         Player ply = ctx.player();
 
         BetterKeepInventory plugin = BetterKeepInventory.getInstance();
+        Random rng = plugin.rng;
 
+        List<Integer> slots = this.slots.getSlotIds();
         List<Material> items = this.items.getMaterials();
+
         BetterKeepInventory.instance.debug(ply, "The Items Are " + items);
 
-        // Items take damage wherever they end up, kept or dropped. Slot filters only constrain
-        // the kept pass, because an item on the ground no longer has a slot.
-        //
-        // This used to depend on the world's keepInventory gamerule without meaning to: under
-        // DROP with the gamerule off, the server had already copied the inventory into
-        // event.getDrops() before this ran, so damaging the player's inventory changed nothing.
-        // With it on, drops were built afterwards and the damage stuck. Same config, opposite
-        // result.
+        // Only what the player is keeping. Damaging things already bound for the ground would be
+        // new behaviour rather than a fix -- under DROP with the world gamerule off, which is the
+        // usual case, this has never touched them. A rule that wants gear beaten up *and then*
+        // dropped says so by ordering `damage` before a `drop` effect, where the items are still
+        // in a slot and slot filters still mean something.
         ItemStack[] inventory = ctx.inventory();
+
         for (int i = 0; i < inventory.length; i++) {
-            damageOne(ctx, plugin, ply, inventory[i], i);
-        }
-        for (ItemStack dropped : ctx.drops()) {
-            damageOne(ctx, plugin, ply, dropped, NO_SLOT);
-        }
-    }
 
-    /** Slot filters cannot apply to an item that is no longer in a slot. */
-    private static final int NO_SLOT = -1;
-
-    private void damageOne(DeathContext ctx, BetterKeepInventory plugin, Player ply, ItemStack item, int i) {
-
-            Random rng = plugin.rng;
-            List<Integer> slots = this.slots.getSlotIds();
-            List<Material> items = this.items.getMaterials();
-
-            if(item == null) return;
+            var item = inventory[i];
+            if(item == null) continue;
 
             var meta = item.getItemMeta();
 
             // Check the filters
             if (!items.isEmpty() && !items.contains(item.getType())){
                 plugin.debug(ply, "Damage skipped due to item filter: " + item.getType());
-                return;
+                continue;
             };
-            if (i != NO_SLOT && !slots.isEmpty() && !slots.contains(i)){
+            if (!slots.isEmpty() && !slots.contains(i)){
                 plugin.debug(ply, "Damage skipped due to slot filter: " + item.getType() + " at slot " + i);
-                return;
+                continue;
             };
 
             if(meta != null){
                 if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(meta.getDisplayName(), nameFilters)){
                     plugin.debug(ply, "Damage skipped due to name filter: " + item.getType() + " with name " + meta.getDisplayName());
-                    return;
+                    continue;
                 };
                 if(meta.getLore() != null){
                     boolean loreFilterMatched = false;
@@ -117,25 +104,25 @@ public class DamageItemEffect implements Effect {
                     }
                     if(loreFilterMatched){
                         plugin.debug(ply, "Damage skipped due to lore filter: " + item.getType());
-                        return;
+                        continue;
                     }
                 }
             }
 
             if (!(meta instanceof Damageable damageableMeta)){
                 plugin.debug(ply, "Damage skipped due to item not being damageable: " + item.getType());
-                return;
+                continue;
             };
 
             int currentDamageTaken = damageableMeta.getDamage();
             int maxDurability = item.getType().getMaxDurability();
-            if (maxDurability <= 0) return; // item can't hold durability (e.g. blocks/food) — skip so we don't tag it or spam "0 damage"
+            if (maxDurability <= 0) continue; // item can't hold durability (e.g. blocks/food) — skip so we don't tag it or spam "0 damage"
             int damageToTake = calculateDamage(rng, currentDamageTaken, maxDurability);
 
-            if (damageToTake <= 0) return;
+            if (damageToTake <= 0) continue;
 
             damageToTake = applyUnbreaking(item, damageToTake);
-            if (damageToTake <= 0) return; // Unbreaking can reduce damage to 0 — skip so we don't tag the item or spam "0 damage"
+            if (damageToTake <= 0) continue; // Unbreaking can reduce damage to 0 — skip so we don't tag the item or spam "0 damage"
             Map<String, String> replacements = new HashMap<>();
             replacements.put("amount", String.valueOf(damageToTake));
             replacements.put("item", MaterialList.GetName(item));
@@ -162,6 +149,7 @@ public class DamageItemEffect implements Effect {
                 plugin.config.sendMessage(ply, "effects.damage", replacements);
             }
         }
+    }
 
     private int calculateDamage(Random rng, int currentDamageTaken, int maxDurability) {
         return switch (mode) {

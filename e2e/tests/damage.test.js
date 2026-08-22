@@ -12,6 +12,11 @@ import { run } from '../src/rcon.js';
  * `dont_break`, the elytra case. What they cannot answer is whether the damaged item is the one
  * that actually reaches the player or the ground afterwards, which depends on the application
  * step handing over the same stack the effect mutated rather than a copy of the original.
+ *
+ * The effect only touches what the player is keeping. Damaging items already bound for the
+ * ground would be new behaviour rather than a fix: under DROP with the world gamerule off --
+ * the usual case -- it has never done so. Gear that should be beaten up *and then* dropped is
+ * expressed by ordering `damage` before a `drop` effect, which is what the second test covers.
  */
 
 const DAMAGE = 5;
@@ -63,18 +68,53 @@ describe('damage survives the death', { timeout: 600_000 }, () => {
     );
   });
 
-  it('is still on the item that hits the ground', { timeout: 120_000 }, async () => {
-    const { rcon, bot } = session;
+  it('reaches the ground damaged when the rule damages before it drops',
+    { timeout: 120_000 }, async () => {
+      const { rcon, bot } = session;
 
-    await applyConfig(rcon, { defaultBehavior: 'DROP', rules: DAMAGE_RULE });
-    await resetPlayer(rcon, bot, { keepInventory: false });
-    await give(rcon, bot, [{ name: 'iron_pickaxe', count: 1 }]);
+      // Config order is execution order, so `damage` runs while the pickaxe is still in a slot
+      // and `drop` then moves the damaged stack out. This is how a rule asks for worn gear on
+      // the floor.
+      await applyConfig(rcon, {
+        defaultBehavior: 'KEEP',
+        rules: {
+          wear_then_drop: {
+            name: 'wear then drop',
+            enabled: true,
+            effects: {
+              damage: { mode: 'SIMPLE', min: DAMAGE, max: DAMAGE },
+              drop: { mode: 'ALL' },
+            },
+          },
+        },
+      });
+      await resetPlayer(rcon, bot, { keepInventory: false });
+      await give(rcon, bot, [{ name: 'iron_pickaxe', count: 1 }]);
 
-    await killAndRespawn(rcon, bot);
+      await killAndRespawn(rcon, bot);
 
-    assert.equal(
-      await droppedDamage(rcon, 'iron_pickaxe'), DAMAGE,
-      'the dropped item is not the one the effect damaged',
-    );
-  });
+      assert.equal(
+        await droppedDamage(rcon, 'iron_pickaxe'), DAMAGE,
+        'the dropped item is not the one the effect damaged',
+      );
+    });
+
+  it('leaves items alone that were already bound for the ground',
+    { timeout: 120_000 }, async () => {
+      const { rcon, bot } = session;
+
+      // Under DROP nothing is being kept, so there is nothing for the effect to act on. Pinned
+      // deliberately: this is the behaviour 2.x had with the gamerule off, and reversing it
+      // would be a new feature rather than a fix.
+      await applyConfig(rcon, { defaultBehavior: 'DROP', rules: DAMAGE_RULE });
+      await resetPlayer(rcon, bot, { keepInventory: false });
+      await give(rcon, bot, [{ name: 'iron_pickaxe', count: 1 }]);
+
+      await killAndRespawn(rcon, bot);
+
+      assert.equal(
+        await droppedDamage(rcon, 'iron_pickaxe'), null,
+        'an item that was never kept should carry no damage component at all',
+      );
+    });
 });

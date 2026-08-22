@@ -5,7 +5,6 @@ import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
 import com.beepsterr.betterkeepinventory.api.Condition;
 import com.beepsterr.betterkeepinventory.api.Effect;
 import com.beepsterr.betterkeepinventory.api.Exceptions.ConditionParseError;
-import com.beepsterr.betterkeepinventory.api.DeathContext;
 import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import com.beepsterr.betterkeepinventory.api.Phase;
 import org.bukkit.Bukkit;
@@ -141,7 +140,7 @@ public class ConfigRule {
      * The context carries the log for the death being processed, rather than the rule holding
      * one: a single rule instance now serves every death.
      */
-    public void trigger(DeathContext ctx) {
+    public void trigger(DeathContextImpl ctx) {
 
         LoggerInterface logger = ctx.logger();
         logger.child("Executing Rule '" + name + "'");
@@ -152,7 +151,7 @@ public class ConfigRule {
             return;
         }
 
-        if (conditions.isEmpty() || conditions.stream().allMatch(c -> c.check(ctx))) {
+        if (applies(ctx)) {
             logger.log("All conditions met for rule '" + name + "'");
 
             for (Effect effect : effects) {
@@ -175,6 +174,29 @@ public class ConfigRule {
 
         logger.parent();
 
+    }
+
+    /**
+     * Whether this rule applies to the death in progress.
+     * <p>
+     * Conditions are evaluated once, in the death phase, and the answer is remembered. The
+     * respawn phase replays it rather than asking again -- several conditions describe the
+     * circumstances of the death, and re-checking them against a player who has since respawned
+     * somewhere else gives a different answer to the same question. A rule gated on `worlds`
+     * would fire its `hunger` at death and then decline to restore it at respawn.
+     */
+    private boolean applies(DeathContextImpl ctx) {
+
+        if (ctx.phase() == Phase.RESPAWN) {
+            return ctx.hasMatched(this);
+        }
+
+        if (!conditions.isEmpty() && !conditions.stream().allMatch(c -> c.check(ctx))) {
+            return false;
+        }
+
+        ctx.recordMatch(this);
+        return true;
     }
 
     @Override

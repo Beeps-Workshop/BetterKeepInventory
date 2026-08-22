@@ -6,6 +6,7 @@ import com.beepsterr.betterkeepinventory.api.Phase;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
@@ -17,8 +18,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -45,6 +48,17 @@ public class DeathContextImpl implements DeathContext {
 
     private final Map<String, Object> extraData = new HashMap<>();
 
+    /**
+     * The rule tree as it stood when this death began, and which of its rules matched.
+     * <p>
+     * Pinned rather than re-read, because the tree is rebuilt whenever a plugin registers or
+     * unregisters something. A rebuild between the two phases would otherwise leave the respawn
+     * walking a different set of objects than the death recorded matches against, and nothing
+     * would run.
+     */
+    private final List<ConfigRule> rules;
+    private final Set<ConfigRule> matched = new HashSet<>();
+
     // Mutable across phases. The Player object is replaced when a player rejoins, so it cannot
     // be captured once and reused.
     private Player player;
@@ -53,8 +67,10 @@ public class DeathContextImpl implements DeathContext {
     private PlayerRespawnEvent respawnEvent;
     private LoggerInterface logger;
 
-    public DeathContextImpl(Player player, PlayerDeathEvent event, Config.DefaultBehavior behavior, LoggerInterface logger) {
+    public DeathContextImpl(Player player, PlayerDeathEvent event, Config.DefaultBehavior behavior,
+                            LoggerInterface logger, List<ConfigRule> rules) {
 
+        this.rules = List.copyOf(rules);
         this.player = player;
         this.playerUuid = player.getUniqueId();
         this.phase = Phase.DEATH;
@@ -125,14 +141,31 @@ public class DeathContextImpl implements DeathContext {
 
         // DROP: the player keeps nothing unless an effect puts it back.
         for (ItemStack item : contents) {
-            if (item != null && !item.getType().isAir()) {
-                drops.add(item.clone());
-            }
+            if (item == null || item.getType().isAir()) continue;
+
+            // A vanishing-cursed item is destroyed by dying, not dropped. The server normally
+            // applies that while collecting death loot, but we build both buckets ourselves and
+            // pin keepInventory on, so it never gets the chance -- putting the item in drops
+            // would resurrect an item vanilla had decided to destroy.
+            if (isVanishing(item)) continue;
+
+            drops.add(item.clone());
         }
         this.levels = 0;
         this.progress = 0f;
         // Vanilla caps the experience a death drops; match it so this behaves like a normal death.
         this.droppedExp = Math.min(originalLevels * 7, 100);
+    }
+
+    /**
+     * Whether dying destroys this item outright.
+     * <p>
+     * Only relevant to items that would otherwise be dropped: the curse has no effect when the
+     * player keeps their inventory, which is why this is only consulted while filling the drop
+     * bucket.
+     */
+    private static boolean isVanishing(ItemStack item) {
+        return item.containsEnchantment(Enchantment.VANISHING_CURSE);
     }
 
     private static ItemStack[] cloneAll(ItemStack[] source) {
@@ -192,4 +225,22 @@ public class DeathContextImpl implements DeathContext {
     }
 
     @Override public LoggerInterface logger() { return logger; }
+
+    /** The rules this death is being evaluated against, fixed for its whole lifetime. */
+    public List<ConfigRule> rules() {
+        return rules;
+    }
+
+    /**
+     * Note that a rule's conditions were satisfied. Conditions are checked once, during the death
+     * phase; the respawn phase replays this rather than asking again, so that a rule cannot match
+     * one half of a death and not the other.
+     */
+    void recordMatch(ConfigRule rule) {
+        matched.add(rule);
+    }
+
+    boolean hasMatched(ConfigRule rule) {
+        return matched.contains(rule);
+    }
 }

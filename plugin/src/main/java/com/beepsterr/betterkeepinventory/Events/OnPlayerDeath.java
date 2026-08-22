@@ -44,13 +44,16 @@ public class OnPlayerDeath  implements Listener {
         // Captured before anything touches the player, and kept until the respawn phase claims it.
         // The two buckets start out according to default_behavior: everything the player was
         // carrying is either kept or dropped, and the rules move things between the two.
-        DeathContextImpl ctx = new DeathContextImpl(ply, event, plugin.config.getDefaultBehavior(), nlb);
+        // The rule tree is handed to the context rather than looked up again later, so both
+        // phases of this death see the same rules even if a plugin registers something in between.
+        DeathContextImpl ctx = new DeathContextImpl(
+                ply, event, plugin.config.getDefaultBehavior(), nlb, plugin.config.getRules());
         plugin.pendingDeaths.put(ctx);
 
         BetterKeepInventory.instance.metrics.deathsProcessed +=1;
 
         // Time to process the top level rules
-        for(ConfigRule rule : plugin.config.getRules()){
+        for(ConfigRule rule : ctx.rules()){
             rule.trigger(ctx);
         }
 
