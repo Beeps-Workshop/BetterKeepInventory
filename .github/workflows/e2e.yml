@@ -9,22 +9,18 @@ name: End-to-end Tests
 # 2.3.2 dupe bug violated.
 # .github/workflows/e2e.yml
 on:
+  # Called by the release and snapshot workflows, which gate on it -- so a build that would ship
+  # a dupe or lose items cannot publish.
+  workflow_call:
+  # Every merge, so a failure is attributable to one merge rather than to whatever accumulated
+  # since the last nightly.
   push:
-    # master only. A branch with an open PR is already covered by the pull_request trigger, and
-    # listing it here just runs the whole thing twice for every push.
     branches: [master]
-  pull_request:
-    # Booting a Paper server to check a readme edit is three minutes of nothing. Note this makes
-    # the check *absent* rather than passing on a PR that touches none of these -- so if it is
-    # ever made a required check, a docs-only PR would wait forever for a run that never comes.
-    paths:
-      - 'plugin/**'
-      - 'api/**'
-      - 'e2e/**'
-      - 'pom.xml'
-      - 'scripts/get_paper_jar.sh'
-      - '.github/workflows/e2e.yml'
   workflow_dispatch:
+
+# Deliberately not on pull_request. Booting Paper is ~3.5 minutes, which is a lot of friction on
+# every push to a branch; the merge and the nightly both cover it, and releases cannot ship
+# without it. Run it by hand from the Actions tab when a change warrants it.
 
 permissions:
   contents: read
