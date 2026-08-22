@@ -2,6 +2,7 @@ package com.beepsterr.betterkeepinventory.Library;
 
 import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.Location;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.ExperienceOrb;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -59,6 +60,14 @@ public final class DeathApplication {
         int droppedStacks = 0;
         for (ItemStack item : ctx.drops()) {
             if (item == null || item.getType().isAir() || item.getAmount() <= 0) continue;
+
+            // Dying destroys a vanishing-cursed item rather than dropping it. Checked here, at
+            // the one place anything actually leaves the player, rather than only where the
+            // bucket is first filled: an effect moving items into drops, or an addon adding to
+            // them from BKIPlayerDeathProcessedEvent, would otherwise put a cursed item on the
+            // ground and resurrect something vanilla had decided to destroy.
+            if (item.containsEnchantment(Enchantment.VANISHING_CURSE)) continue;
+
             at.getWorld().dropItemNaturally(at, item);
             droppedStacks++;
         }

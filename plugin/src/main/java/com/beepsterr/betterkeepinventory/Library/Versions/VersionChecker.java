@@ -70,10 +70,23 @@ public class VersionChecker {
         }, 0L, CHECK_INTERVAL_TICKS);
     }
 
-    public boolean IsUpdateAvailable() {
+    /**
+     * The version worth telling people about, or null if there is nothing newer.
+     * <p>
+     * Callers must use this rather than asking whether an update exists and then reading
+     * {@link #foundVersion} separately: the checker runs on its own thread and can null the
+     * field between those two reads, which the caller then dereferences. That became reachable
+     * once a check could legitimately find nothing -- STABLE returns null whenever no compatible
+     * version is on the recommended list.
+     */
+    public Version getAvailableUpdate() {
         Version found = foundVersion;
-        if (found == null) return false;
-        return found.compareTo(BetterKeepInventory.getInstance().version) > 0;
+        if (found == null) return null;
+        return found.compareTo(BetterKeepInventory.getInstance().version) > 0 ? found : null;
+    }
+
+    public boolean IsUpdateAvailable() {
+        return getAvailableUpdate() != null;
     }
 
     /**

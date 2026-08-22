@@ -64,8 +64,10 @@ public class MainCommand implements CommandExecutor, TabCompleter {
                 // Null when update checks are off -- the checker is only constructed when the
                 // channel is something other than NONE.
                 if(plugin.versionChecker != null && plugin.versionChecker.channel != VersionChannel.NONE) {
-                    boolean isUpdateAvailable = plugin.versionChecker.IsUpdateAvailable();
-                    if (!isUpdateAvailable) {
+                    // One read: the checker thread can clear this between an "is there one?" and
+                    // a "what is it?".
+                    Version available = plugin.versionChecker.getAvailableUpdate();
+                    if (available == null) {
                         sender.sendMessage("" + ChatColor.GREEN + ChatColor.ITALIC + "No updates available.");
                     }else{
 
@@ -73,7 +75,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
                         // can run, and Modrinth is where that per-version compatibility lives.
                         String updateURL = "https://modrinth.com/plugin/betterkeepinventory/versions";
 
-                        TextComponent updateAvailableComponent = new TextComponent(plugin.versionChecker.foundVersion.toString() + " is available for download!");
+                        TextComponent updateAvailableComponent = new TextComponent(available + " is available for download!");
                         updateAvailableComponent.setColor(ChatColor.GOLD);
                         updateAvailableComponent.setItalic(true);
                         updateAvailableComponent.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, updateURL));

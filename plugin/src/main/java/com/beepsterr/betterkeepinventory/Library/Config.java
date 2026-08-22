@@ -67,7 +67,11 @@ public class Config {
         }
         this.rawMessages = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "messages.yml"));
 
-        version = config.getString("version", "2.1.0");
+        // Everything below reads this.rawConfig rather than the `config` parameter. They are the
+        // same object right up until the "default" branch above swaps rawConfig for a freshly
+        // reloaded one -- after which reads from `config` see a stale file, and anything
+        // MigrateConfiguration writes is invisible to the parse that follows.
+        version = this.rawConfig.getString("version", "2.1.0");
 
         // Before anything is read out of the file. A migration that renames or removes a value
         // has to run first, or the parse below fails on the old spelling -- and
@@ -75,9 +79,9 @@ public class Config {
         // whole plugin down for anyone who had picked a channel that no longer exists.
         MigrateConfiguration();
 
-        notifyChannel = VersionChannel.valueOf(config.getString("notify_channel", "STABLE").toUpperCase());
-        hash = config.getString("hash", "OLD");
-        debug = config.getBoolean("debug", false);
+        notifyChannel = VersionChannel.valueOf(this.rawConfig.getString("notify_channel", "STABLE").toUpperCase());
+        hash = this.rawConfig.getString("hash", "OLD");
+        debug = this.rawConfig.getBoolean("debug", false);
 
         try{
             LoadMessages(plugin);
@@ -85,7 +89,7 @@ public class Config {
             throw new UnloadableConfiguration(e.getMessage());
         }
 
-        defaultBehavior = DefaultBehavior.valueOf(config.getString("default_behavior", "INHERIT").toUpperCase());
+        defaultBehavior = DefaultBehavior.valueOf(this.rawConfig.getString("default_behavior", "INHERIT").toUpperCase());
 
         // Constructed, deliberately not built. Addons register their conditions and effects in
         // their own onEnable, which runs after ours -- building now would parse the rules before

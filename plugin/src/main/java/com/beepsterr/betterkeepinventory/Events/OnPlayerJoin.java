@@ -1,6 +1,7 @@
 package com.beepsterr.betterkeepinventory.Events;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
+import com.beepsterr.betterkeepinventory.Library.Versions.Version;
 import com.beepsterr.betterkeepinventory.Library.ConfigRule;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
@@ -38,10 +39,16 @@ public class OnPlayerJoin implements Listener {
                 }
 
 
-                if(plugin.versionChecker != null && plugin.versionChecker.IsUpdateAvailable()) {
+                // One read: the checker thread can clear this between an "is there one?" and a
+                // "what is it?".
+                Version available = plugin.versionChecker == null
+                        ? null
+                        : plugin.versionChecker.getAvailableUpdate();
+
+                if(available != null) {
                     // Send a message to the player
                     ply.sendMessage(ChatColor.YELLOW + "A new version of BetterKeepInventory is available!");
-                    ply.sendMessage(ChatColor.GREEN + plugin.versionChecker.foundVersion.toString() + ChatColor.YELLOW + " (Installed: " + plugin.version.toString() + ")");
+                    ply.sendMessage(ChatColor.GREEN + available.toString() + ChatColor.YELLOW + " (Installed: " + plugin.version.toString() + ")");
                 }
             });
 

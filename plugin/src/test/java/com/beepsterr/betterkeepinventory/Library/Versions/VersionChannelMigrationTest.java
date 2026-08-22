@@ -78,4 +78,22 @@ class VersionChannelMigrationTest {
         assertEquals(VersionChannel.STABLE, new Config(cfg, null).getNotifyChannel(),
                 "the recommended list is the safe default");
     }
+
+    /**
+     * The other path into Config: a file whose version is still the placeholder, which sends the
+     * constructor off to reload from disk and swap the object it reads from.
+     * <p>
+     * Every other test here uses a stamped version, where the parameter and the reloaded config
+     * happen to be the same object -- so a migration writing to one and the parse reading the
+     * other still worked by accident.
+     */
+    @Test
+    void snapshotIsMigratedEvenOnAFreshlyStampedConfig() {
+        YamlConfiguration cfg = new YamlConfiguration();
+        cfg.set("version", "default");
+        cfg.set("notify_channel", "SNAPSHOT");
+
+        assertDoesNotThrow(() -> new Config(cfg, null),
+                "the reload path must not leave the parse reading a config the migration did not touch");
+    }
 }
