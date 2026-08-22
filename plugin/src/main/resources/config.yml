@@ -1,10 +1,10 @@
 #
 #   BetterKeepInventory By BeepSterr
-#   Version 2.0.0
+#   Version 3.0.0
 #
 #   SpigotMC:         https://www.spigotmc.org/resources/betterkeepinventory.93081/
 #   Documentation:    https://workshop.beepsterr.com/bki/
-#   GitHub:           https://github.com/Awoo-industries/BetterKeepInventory
+#   GitHub:           https://github.com/Beeps-Workshop/BetterKeepInventory
 #   Discord:          https://beepsterr.com/discord
 #
 
@@ -19,12 +19,10 @@ hash: ""
 # version and server software, so you will never be pointed at an update you cannot install.
 #
 # Options:
-# - NONE:   Do not check for updates at all. No requests are made.
-# - STABLE: Only versions on the recommended list. The safe choice, and the one to use if you
-#           cannot move off an older Minecraft version -- it will keep you on the best release
-#           for the version you are on, rather than going quiet.
+# - NONE:   Do not check for updates.
+# - STABLE: Any full release that has been marked stable.
 # - LATEST: Any full release.
-# - BETA:   Full releases and betas.
+# - BETA:   Full and beta releases.
 notify_channel: "STABLE"
 
 # Enable this if you want to see debug messages in the console or if the developer asked nicely
@@ -56,9 +54,9 @@ rules:
         max: 0.0 # Change if you want equipment to be damaged
         filters:
           slots:
-            - "ARMOR" # Slot List! Check the https://bki.beepsterr.com/SlotLists for more information
+            - "ARMOR" # Slot List! Check the https://workshop.beepsterr.com/bki/Types/SlotLists for more information
           items:
-            - "G:ARMOR" # Resource List! Check the https://bki.beepsterr.com/ResourceLists for more information
+            - "G:ARMOR" # Resource List! Check the https://workshop.beepsterr.com/bki/Types/ResourceLists for more information
 
 # There is a lot more you can do, but to keep the default config slim and clean, we will not include it here.
 # Please do check the documentation linked on the top of this file for more information on how to configure the plugin

@@ -52,7 +52,6 @@ public class VersionChecker {
 
     public final VersionChannel channel;
 
-    /** Held so cancelling stops this timer and nothing else. */
     private WrappedTask task;
 
     public VersionChecker(VersionChannel channel) {
@@ -214,16 +213,6 @@ public class VersionChecker {
         return Bukkit.getBukkitVersion().split("-")[0];
     }
 
-    /**
-     * This server's software, as a Modrinth loader name.
-     * <p>
-     * Purpur reports as Paper, which is harmless: the plugin publishes for both, so a Purpur
-     * server filtering on {@code paper} still sees every version it can run.
-     * <p>
-     * An unrecognised fork falls back to {@code spigot} rather than to no filter at all. Spigot
-     * is the base API the others extend, so anything published for it will run -- and dropping
-     * the filter entirely would put us back to recommending updates the server cannot install.
-     */
     static String serverLoader() {
         ImplementationType type = BetterKeepInventory.getScheduler().getImplType();
         if (type == null) return "spigot";
