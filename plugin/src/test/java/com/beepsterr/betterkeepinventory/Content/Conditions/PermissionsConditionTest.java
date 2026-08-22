@@ -1,6 +1,5 @@
 package com.beepsterr.betterkeepinventory.Content.Conditions;
 
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.bukkit.plugin.Plugin;

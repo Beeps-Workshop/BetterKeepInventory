@@ -39,7 +39,7 @@ public final class TestContexts {
      */
     public static DeathContextImpl death(Player player, PlayerDeathEvent event,
                                          Config.DefaultBehavior behavior, List<ConfigRule> rules) {
-        return new DeathContextImpl(player, event, behavior, new NoopLogger(), rules);
+        return new DeathContextImpl(player, event, behavior, rules);
     }
 
     /**
@@ -48,7 +48,7 @@ public final class TestContexts {
      */
     public static DeathContextImpl respawn(Player player, PlayerRespawnEvent event) {
         DeathContextImpl ctx = death(player);
-        ctx.enterRespawnPhase(player, event, new NoopLogger());
+        ctx.enterRespawnPhase(player, event);
         return ctx;
     }
 
@@ -61,6 +61,6 @@ public final class TestContexts {
      * drifting.
      */
     public static void apply(DeathContextImpl ctx) {
-        DeathApplication.apply(ctx, null, new NoopLogger());
+        DeathApplication.apply(ctx, null);
     }
 }

@@ -1,7 +1,6 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;

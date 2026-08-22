@@ -2,7 +2,6 @@ package com.beepsterr.betterkeepinventory.Library;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Material;
 import org.bukkit.configuration.MemoryConfiguration;
@@ -39,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * The plugin is loaded via MockBukkit because ConfigRule resolves the
  * condition/effect registries through the BetterKeepInventory API service and
- * logs through a NestedLogBuilder that reads the plugin singleton.
+ * logs through a StructuredLogger that reads the plugin singleton.
  */
 class ConfigRuleTest {
 

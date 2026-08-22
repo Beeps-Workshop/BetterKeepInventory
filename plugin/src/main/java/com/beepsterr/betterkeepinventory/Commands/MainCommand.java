@@ -6,6 +6,7 @@ import com.beepsterr.betterkeepinventory.Library.Versions.Version;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChannel;
 import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
 import com.beepsterr.betterkeepinventory.Library.Config;
+import com.beepsterr.betterkeepinventory.Library.StructuredLogger;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChecker;
 import com.beepsterr.betterkeepinventory.api.Registry;
 import com.beepsterr.betterkeepinventory.api.RegistryEntry;
@@ -263,7 +264,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         plugin.reloadConfig();
 
         try {
-            plugin.config = new Config(plugin.getConfig(), null);
+            plugin.config = new Config(plugin.getConfig(), StructuredLogger.plugin());
         }catch (UnloadableConfiguration e) {
 
             String alert = "\n"
@@ -281,7 +282,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
         // Parse the rules here rather than leaving it to the next death, so a broken rule is
         // reported to whoever ran the reload instead of surfacing hours later in a death log.
-        plugin.config.buildRules(null);
+        plugin.config.buildRules(StructuredLogger.plugin());
 
         sender.sendMessage(ChatColor.GREEN + "Configuration reloaded successfully.");
 
@@ -327,29 +328,38 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        sender.sendMessage(ChatColor.GRAY + "Generating...");
-        try{
-            BetterKeepInventory.getInstance().debugger.write();
-        }catch (RuntimeException e){
-            sender.sendMessage(ChatColor.RED + "Error: " + e.getMessage());
-            return true;
-        }
+        sender.sendMessage(ChatColor.GRAY + "Generating and uploading...");
 
-        sender.sendMessage(ChatColor.GRAY + "Uploading...");
-        try {
-            String key = BetterKeepInventory.getInstance().debugger.upload();
-            TextComponent textComponent = new TextComponent("Uploaded! https://bin.lunega.dev/" + key + " (click to copy URL)");
-            textComponent.setColor(ChatColor.GREEN);
-            textComponent.setClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, "https://bin.lunega.dev/" + key ));
-            sender.spigot().sendMessage(textComponent);
-        }catch (Exception e){
-            sender.sendMessage(ChatColor.RED + "Error: " + e.getMessage());
-            return true;
-        }
+        // Off the server thread. This writes a file and then blocks on a paste bin that may be
+        // slow or unreachable, and no timeout is long enough to make doing that on the main
+        // thread acceptable -- it would freeze every player on the server.
+        BetterKeepInventory.getScheduler().getScheduler().runAsync(task -> {
 
+            String url;
+            try {
+                url = BetterKeepInventory.getInstance().debugger.upload();
+            } catch (Exception e) {
+                // Back onto a server thread before touching the sender, since we are no longer on
+                // one. The same applies to the success path below.
+                respond(sender, ChatColor.RED + "Debug upload failed: " + e.getMessage());
+                return;
+            }
+
+            BetterKeepInventory.getScheduler().getScheduler().runNextTick(back -> {
+                TextComponent uploaded = new TextComponent("Uploaded! " + url + " (click to copy URL)");
+                uploaded.setColor(ChatColor.GREEN);
+                uploaded.setClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, url));
+                sender.spigot().sendMessage(uploaded);
+            });
+        });
 
         return true;
 
+    }
+
+    /** Send a message from an asynchronous task, hopping back onto a server thread to do it. */
+    private static void respond(CommandSender sender, String message) {
+        BetterKeepInventory.getScheduler().getScheduler().runNextTick(task -> sender.sendMessage(message));
     }
 
     public boolean OnDebugVerboseCommand(CommandSender sender, Command command, String label, String[] args){

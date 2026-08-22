@@ -1,10 +1,11 @@
 package com.beepsterr.betterkeepinventory.Library;
 
+import com.beepsterr.betterkeepinventory.api.BkiLogger;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
+import java.util.Map;
 
 /**
  * The active rule tree: built from configuration, then held and reused.
@@ -68,19 +69,19 @@ public class Ruleset {
      * Synchronized so two callers racing -- a scheduled rebuild and a death taking the fallback
      * above -- do the work once rather than both parsing the whole tree.
      *
-     * @param nlb where to narrate the parse, or null for a fresh log.
+     * @param log where to narrate the parse, or null for a plugin-level log.
      * @return the rules now active.
      */
-    public synchronized List<ConfigRule> build(NestedLogBuilder nlb) {
+    public synchronized List<ConfigRule> build(BkiLogger log) {
 
-        // A rebuild happens whenever any plugin registers or unregisters something, so at the
-        // default level every addon that enables would dump the whole rule tree to the console.
-        // Matches the death handlers: visible only when debug is on.
-        Config config = Config.getInstance();
-        NestedLogBuilder log = nlb != null
-                ? nlb
-                : new NestedLogBuilder(config != null && config.isDebug() ? Level.INFO : Level.FINE);
+        if (log == null) {
+            log = StructuredLogger.plugin();
+        }
 
+        // A rebuild happens whenever any plugin registers or unregisters something, so the parse
+        // narrates at debug level: otherwise every addon that enables would dump the whole rule
+        // tree to the console. Warnings still come through, because those are worth interrupting
+        // for.
         List<ConfigRule> built = new ArrayList<>();
 
         if (rulesSection != null) {
@@ -95,9 +96,7 @@ public class Ruleset {
         this.rules = List.copyOf(built);
         this.stale = false;
 
-        if (nlb == null) {
-            log.end();
-        }
+        log.debug("rule tree built", Map.of("rules", this.rules.size()));
 
         return this.rules;
     }

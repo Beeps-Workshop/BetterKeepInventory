@@ -4,7 +4,6 @@ import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Library.ConfigRule;
 import com.beepsterr.betterkeepinventory.Library.DeathApplication;
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
-import com.beepsterr.betterkeepinventory.Library.NestedLogBuilder;
 import com.beepsterr.betterkeepinventory.api.Events.BKIPlayerDeathAppliedEvent;
 import com.beepsterr.betterkeepinventory.api.Events.BKIPlayerDeathProcessedEvent;
 import org.bukkit.Bukkit;
@@ -15,7 +14,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.PlayerDeathEvent;
 
-import java.util.logging.Level;
+import java.util.Map;
 
 public class OnPlayerDeath  implements Listener {
 
@@ -30,16 +29,6 @@ public class OnPlayerDeath  implements Listener {
     public void onPlayerDeath(PlayerDeathEvent event) {
 
         Player ply = event.getEntity();
-        // Only surface the full rule-evaluation tree in the console when debug is on.
-        // At FINE it is still captured for `/bki debug upload`, just hidden from the default handler.
-        NestedLogBuilder nlb = new NestedLogBuilder(plugin.config.isDebug() ? Level.INFO : Level.FINE);
-
-        nlb.log("Player" + ply.getName() + " (" + ply.getUniqueId() + ") died.");
-        nlb.spacer();
-        nlb.cont("Phase 1/2 (Death)");
-        nlb.cont("World: " + ply.getWorld().getName() + " ( KI: " + ply.getWorld().getGameRuleValue(GameRule.KEEP_INVENTORY) + ")");
-        nlb.cont("Behavior: " + plugin.config.getDefaultBehavior().toString());
-        nlb.spacer();
 
         // Captured before anything touches the player, and kept until the respawn phase claims it.
         // The two buckets start out according to default_behavior: everything the player was
@@ -47,8 +36,15 @@ public class OnPlayerDeath  implements Listener {
         // The rule tree is handed to the context rather than looked up again later, so both
         // phases of this death see the same rules even if a plugin registers something in between.
         DeathContextImpl ctx = new DeathContextImpl(
-                ply, event, plugin.config.getDefaultBehavior(), nlb, plugin.config.getRules());
+                ply, event, plugin.config.getDefaultBehavior(), plugin.config.getRules());
         plugin.pendingDeaths.put(ctx);
+
+        // The context binds the player, phase, world and behavior onto every line from here on,
+        // so this only has to say what is not already a field.
+        ctx.logger().debug("player died", Map.of(
+                "configured_behavior", plugin.config.getDefaultBehavior().toString(),
+                "gamerule_keep_inventory", String.valueOf(ply.getWorld().getGameRuleValue(GameRule.KEEP_INVENTORY)),
+                "rules", ctx.rules().size()));
 
         BetterKeepInventory.instance.metrics.deathsProcessed +=1;
 
@@ -62,7 +58,7 @@ public class OnPlayerDeath  implements Listener {
         // plugin moves it all back into ctx.inventory().
         Bukkit.getPluginManager().callEvent(new BKIPlayerDeathProcessedEvent(ctx));
 
-        DeathApplication.apply(ctx, event, nlb);
+        DeathApplication.apply(ctx, event);
 
         // Settled. For observers only -- changing the buckets now has no effect.
         Bukkit.getPluginManager().callEvent(new BKIPlayerDeathAppliedEvent(ctx));

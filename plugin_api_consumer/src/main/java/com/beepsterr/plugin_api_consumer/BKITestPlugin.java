@@ -6,6 +6,7 @@ import com.beepsterr.betterkeepinventory.api.DeathContext;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
+import java.util.Map;
 
 public class BKITestPlugin extends JavaPlugin {
 
@@ -51,7 +52,9 @@ public class BKITestPlugin extends JavaPlugin {
 
         @Override
         public boolean check(DeathContext ctx) {
-            ctx.logger().log("Hello from AlwaysTrueCondition!");
+            // The context has already bound the player, phase and death id, so an addon only
+            // supplies what it is itself saying.
+            ctx.logger().debug("Hello from AlwaysTrueCondition!", Map.of("addon", "plugin_api_consumer"));
             return false;
         }
     }

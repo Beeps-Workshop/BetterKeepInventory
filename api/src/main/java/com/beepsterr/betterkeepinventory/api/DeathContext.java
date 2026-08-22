@@ -191,8 +191,12 @@ public interface DeathContext {
     // ------------------------------------------------------------------ logging
 
     /**
-     * The logger for the rule evaluation currently in progress, already nested at the right
-     * depth.
+     * The logger for this death, with the fields describing it already bound.
+     * <p>
+     * Anything written through it carries the player, the phase and the death's own id without
+     * the caller supplying them, and lands in {@code /bki debug upload} as JSON alongside the
+     * plugin's own narration. Use {@link BkiLogger#debug} for per-death detail: it is recorded
+     * either way and only reaches the console when the server owner asked for it.
      */
-    LoggerInterface logger();
+    BkiLogger logger();
 }

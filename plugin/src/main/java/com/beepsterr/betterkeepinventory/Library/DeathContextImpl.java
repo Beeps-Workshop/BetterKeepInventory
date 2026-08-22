@@ -1,7 +1,7 @@
 package com.beepsterr.betterkeepinventory.Library;
 
 import com.beepsterr.betterkeepinventory.api.DeathContext;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
+import com.beepsterr.betterkeepinventory.api.BkiLogger;
 import com.beepsterr.betterkeepinventory.api.Phase;
 import org.bukkit.GameRule;
 import org.bukkit.Location;
@@ -31,10 +31,21 @@ import java.util.UUID;
  */
 public class DeathContextImpl implements DeathContext {
 
+    /**
+     * Identifies this death in the logs.
+     * <p>
+     * Short rather than a full UUID because it is read off a console line, and there only has to
+     * be enough of it to tell apart the handful of deaths in flight at any one moment.
+     */
+    private final String deathId = UUID.randomUUID().toString().substring(0, 8);
+
     private final UUID playerUuid;
     private final Location deathLocation;
     private final EntityDamageEvent.DamageCause cause;
     private final Entity killer;
+
+    /** What INHERIT actually resolved to, kept so the logs can say which one applied. */
+    private final Config.DefaultBehavior resolvedBehavior;
 
     private final List<ItemStack> originalInventory;
     private final int originalLevels;
@@ -65,17 +76,30 @@ public class DeathContextImpl implements DeathContext {
     private Phase phase;
     private PlayerDeathEvent deathEvent;
     private PlayerRespawnEvent respawnEvent;
-    private LoggerInterface logger;
+
+    /**
+     * Built here rather than handed in, so that every line written during this death carries the
+     * fields identifying it without a caller having to remember them. It reads this context at
+     * log time, which is what lets one logger stay correct after the phase changes.
+     */
+    private final BkiLogger baseLogger = StructuredLogger.forDeath(this);
+
+    /**
+     * What {@link #logger()} currently hands out: the base logger, narrowed to whichever rule and
+     * effect is running. An effect writing through {@code ctx.logger()} is then attributable to
+     * the rule that invoked it without having to be told which one that was -- which is the one
+     * thing the old nesting did that fields would otherwise lose.
+     */
+    private BkiLogger logger = baseLogger;
 
     public DeathContextImpl(Player player, PlayerDeathEvent event, Config.DefaultBehavior behavior,
-                            LoggerInterface logger, List<ConfigRule> rules) {
+                            List<ConfigRule> rules) {
 
         this.rules = List.copyOf(rules);
         this.player = player;
         this.playerUuid = player.getUniqueId();
         this.phase = Phase.DEATH;
         this.deathEvent = event;
-        this.logger = logger;
 
         this.deathLocation = player.getLocation().clone();
 
@@ -98,7 +122,8 @@ public class DeathContextImpl implements DeathContext {
         this.originalInventory = Collections.unmodifiableList(Arrays.asList(cloneAll(contents)));
         this.inventory = new ItemStack[contents.length];
 
-        initialiseBuckets(resolveBehavior(player, behavior), contents);
+        this.resolvedBehavior = resolveBehavior(player, behavior);
+        initialiseBuckets(this.resolvedBehavior, contents);
     }
 
     private static Entity resolveKiller(Player player, EntityDamageEvent lastDamage) {
@@ -177,16 +202,15 @@ public class DeathContextImpl implements DeathContext {
     }
 
     /**
-     * Move this context into the respawn phase. The player and logger are replaced rather than
-     * reused: the {@link Player} object is a different instance after a rejoin, and the log
-     * belongs to the respawn being processed.
+     * Move this context into the respawn phase. The player is replaced rather than reused: the
+     * {@link Player} object is a different instance after a rejoin. The logger is not replaced --
+     * it reads the phase from here, so it starts saying {@code RESPAWN} on its own.
      */
-    public void enterRespawnPhase(Player player, PlayerRespawnEvent event, LoggerInterface logger) {
+    public void enterRespawnPhase(Player player, PlayerRespawnEvent event) {
         this.player = player;
         this.phase = Phase.RESPAWN;
         this.respawnEvent = event;
         this.deathEvent = null;
-        this.logger = logger;
     }
 
     @Override public Player player() { return player; }
@@ -224,7 +248,32 @@ public class DeathContextImpl implements DeathContext {
         extraData.put(key, value);
     }
 
-    @Override public LoggerInterface logger() { return logger; }
+    @Override public BkiLogger logger() { return logger; }
+
+    /**
+     * Narrow the logger handed to effects for the duration of one rule or effect.
+     * <p>
+     * Rules nest, so the previous logger is returned rather than assumed: the caller restores it
+     * in a finally block. One death is processed on one thread, so there is nothing to guard
+     * beyond that.
+     *
+     * @return the logger that was in place, to be passed back to {@link #popLogger}.
+     */
+    BkiLogger pushLogger(Map<String, Object> fields) {
+        BkiLogger previous = logger;
+        this.logger = logger.with(fields);
+        return previous;
+    }
+
+    void popLogger(BkiLogger previous) {
+        this.logger = previous;
+    }
+
+    /** Identifies this death across both phases and across concurrent deaths. */
+    public String deathId() { return deathId; }
+
+    /** The behavior the buckets were initialised from, with INHERIT already resolved. */
+    public Config.DefaultBehavior resolvedBehavior() { return resolvedBehavior; }
 
     /** The rules this death is being evaluated against, fixed for its whole lifetime. */
     public List<ConfigRule> rules() {

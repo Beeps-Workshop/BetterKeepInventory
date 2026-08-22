@@ -2,7 +2,6 @@ package com.beepsterr.betterkeepinventory.Library;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Content.Effects.DropItemEffect;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Material;
 import org.bukkit.configuration.MemoryConfiguration;

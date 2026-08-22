@@ -1,7 +1,6 @@
 package com.beepsterr.betterkeepinventory.Library;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
@@ -41,7 +40,7 @@ class DeathContextImplTest {
     }
 
     private DeathContextImpl contextWith(Config.DefaultBehavior behavior) {
-        return new DeathContextImpl(player, null, behavior, new NoopLogger(), List.of());
+        return new DeathContextImpl(player, null, behavior, List.of());
     }
 
     private static ItemStack cursed(Material type) {

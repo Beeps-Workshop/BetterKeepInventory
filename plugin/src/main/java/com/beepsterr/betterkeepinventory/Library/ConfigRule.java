@@ -5,14 +5,14 @@ import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
 import com.beepsterr.betterkeepinventory.api.Condition;
 import com.beepsterr.betterkeepinventory.api.Effect;
 import com.beepsterr.betterkeepinventory.api.Exceptions.ConditionParseError;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
+import com.beepsterr.betterkeepinventory.api.BkiLogger;
 import com.beepsterr.betterkeepinventory.api.Phase;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
+import java.util.Map;
 
 public class ConfigRule {
 
@@ -25,7 +25,7 @@ public class ConfigRule {
 
     private final List<ConfigRule> children = new ArrayList<>();
 
-    public ConfigRule(ConfigurationSection config, ConfigRule parent, NestedLogBuilder nlb) {
+    public ConfigRule(ConfigurationSection config, ConfigRule parent, BkiLogger log) {
 
         this.parent = parent;
         this.name = config.getString("name", "Unnamed Rule");
@@ -33,10 +33,11 @@ public class ConfigRule {
 
         // Parse-time only. The rule tree outlives this logger -- see trigger(), which takes the
         // logger for the death being processed rather than reusing this one.
-        if (nlb == null) {
-            nlb = new NestedLogBuilder(Level.FINE);
+        if (log == null) {
+            log = StructuredLogger.plugin();
         }
-        nlb.child("Parsing Rule '" + name + "'");
+        log = log.with(Map.of("rule", name));
+        log.debug("parsing rule");
 
         var api = Bukkit.getServer().getServicesManager().load(BetterKeepInventoryAPI.class);
         if(api == null){
@@ -48,23 +49,20 @@ public class ConfigRule {
             var condSection = config.getConfigurationSection("conditions");
             assert condSection != null;
 
-            nlb.child("Conditions (" + condSection.getKeys(false).size() + ")");
+            log.debug("parsing conditions", Map.of("count", condSection.getKeys(false).size()));
             for (String key : condSection.getKeys(false))
             {
 
-                nlb.log("Parsing condition '" + key + "'");
                 if (!api.conditionRegistry().has(key)) {
-                    nlb.cont(Level.WARNING, "'" + key + "' is not a registered condition");
-                    nlb.cont(Level.WARNING, "Either you need a plugin to provide it, or it does not exist");
-                    nlb.cont("This condition is being treated as if it does not exist (skipping)");
+                    log.warn("skipping rule condition: not a registered condition. Either a plugin"
+                            + " needs to provide it, or it does not exist.", Map.of("condition", key));
                     continue;
                 }
 
                 ConfigurationSection section = condSection.getConfigurationSection(key);
                 if (section == null) {
-                    nlb.cont(Level.WARNING, "'" + key + "' is not configured properly.");
-                    nlb.cont(Level.WARNING, "Either you did not provide a configuration section, or it is malformed.");
-                    nlb.cont("This condition is being treated as if it does not exist (skipping)");
+                    log.warn("skipping rule condition: no configuration section, or it is malformed.",
+                            Map.of("condition", key));
                     continue;
                 }
 
@@ -72,43 +70,36 @@ public class ConfigRule {
                     Condition cond = api.conditionRegistry().get(key).create(section);
                     conditions.add(cond);
                 }catch(ConditionParseError e){
-                    nlb.cont(Level.WARNING, "'" + key + "' could not be parsed.");
-                    nlb.cont(Level.WARNING, "The configuration is malformed.");
-                    nlb.cont(e.getMessage());
+                    log.warn("skipping rule condition: the configuration could not be parsed.",
+                            Map.of("condition", key, "error", e.getMessage()));
                 }
             }
-            nlb.parent();
         }else{
-            nlb.log("No conditions defined in this rule.");
+            log.debug("rule has no conditions");
         }
 
 
         // Parse effects
         ConfigurationSection effectSection = config.getConfigurationSection("effects");
         if (effectSection != null) {
-            nlb.child("Effects (" + effectSection.getKeys(false).size() + ")");
+            log.debug("parsing effects", Map.of("count", effectSection.getKeys(false).size()));
             for (String key : effectSection.getKeys(false)) {
 
-                nlb.log("Parsing effect '" + key + "'");
                 ConfigurationSection effConfig = effectSection.getConfigurationSection(key);
                 if (effConfig == null) continue;
 
                 Effect effect = api.effectRegistry().create(key, effConfig);
                 if (effect == null){
-                    nlb.cont(Level.WARNING, "'" + key + "' is not a registered effect");
-                    nlb.cont(Level.WARNING, "Either you need a plugin to provide it, or it does not exist");
-                    nlb.cont("This effect is being treated as if it does not exist (skipping)");
+                    log.warn("skipping rule effect: not a registered effect. Either a plugin needs"
+                            + " to provide it, or it does not exist.", Map.of("effect", key));
                     continue;
                 }
 
                 effects.add(effect);
             }
-            nlb.parent();
         }else{
-            nlb.log("No effects defined in this rule.");
+            log.debug("rule has no effects");
         }
-
-        nlb.spacer();
 
         // Parse children
         ConfigurationSection childrenSection = config.getConfigurationSection("children");
@@ -116,12 +107,10 @@ public class ConfigRule {
             for (String childKey : childrenSection.getKeys(false)) {
                 ConfigurationSection childConfig = childrenSection.getConfigurationSection(childKey);
                 if (childConfig != null) {
-                    children.add(new ConfigRule(childConfig, this, nlb));
+                    children.add(new ConfigRule(childConfig, this, log));
                 }
             }
         }
-
-        nlb.parent();
 
     }
 
@@ -142,37 +131,46 @@ public class ConfigRule {
      */
     public void trigger(DeathContextImpl ctx) {
 
-        LoggerInterface logger = ctx.logger();
-        logger.child("Executing Rule '" + name + "'");
+        // Narrow the context's logger for the whole rule, so that anything an effect writes
+        // through ctx.logger() names the rule that invoked it. Restored in the finally below --
+        // rules nest, and a child must not leave its own name bound for its siblings.
+        BkiLogger outer = ctx.pushLogger(Map.of("rule", name));
+        try {
 
-        if (!isEnabled()) {
-            logger.log("Skipped execution of rule '" + name + "' (enabled: false)");
-            logger.parent();
-            return;
-        }
+            BkiLogger logger = ctx.logger();
 
-        if (applies(ctx)) {
-            logger.log("All conditions met for rule '" + name + "'");
+            if (!isEnabled()) {
+                logger.debug("rule skipped (enabled: false)");
+                return;
+            }
+
+            if (!applies(ctx)) {
+                logger.debug("rule skipped: not all conditions were met");
+                return;
+            }
+
+            logger.debug("rule matched: all conditions met");
 
             for (Effect effect : effects) {
-                logger.child("Effect: " + effect.getClass());
-                if (ctx.phase() == Phase.DEATH) {
-                    effect.onDeath(ctx);
-                } else {
-                    effect.onRespawn(ctx);
+                BkiLogger outerEffect = ctx.pushLogger(Map.of("effect", effect.getClass().getSimpleName()));
+                try {
+                    if (ctx.phase() == Phase.DEATH) {
+                        effect.onDeath(ctx);
+                    } else {
+                        effect.onRespawn(ctx);
+                    }
+                } finally {
+                    ctx.popLogger(outerEffect);
                 }
-                logger.parent();
             }
 
             for (ConfigRule child : children) {
                 child.trigger(ctx);
             }
 
-        } else {
-            logger.log("Not all conditions were met, skipping effects.");
+        } finally {
+            ctx.popLogger(outer);
         }
-
-        logger.parent();
 
     }
 

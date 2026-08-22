@@ -2,7 +2,6 @@ package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.junit.jupiter.api.AfterEach;

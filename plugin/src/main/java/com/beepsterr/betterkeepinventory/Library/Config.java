@@ -4,6 +4,7 @@ import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Exceptions.UnloadableConfiguration;
 import com.beepsterr.betterkeepinventory.Library.Versions.Version;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChannel;
+import com.beepsterr.betterkeepinventory.api.BkiLogger;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -34,35 +35,33 @@ public class Config {
     private final VersionChannel notifyChannel;
     private final String hash;
     private final boolean debug;
+    private final String debugBinUploadUrl;
+    private final String debugBinViewUrl;
     private final DefaultBehavior defaultBehavior;
     private Ruleset ruleset;
 
-    public Config(FileConfiguration config, NestedLogBuilder nlb) throws UnloadableConfiguration {
+    public Config(FileConfiguration config, BkiLogger log) throws UnloadableConfiguration {
 
         BetterKeepInventory plugin = BetterKeepInventory.getInstance();
 
-        if(nlb == null){
-            nlb = new NestedLogBuilder();
+        if(log == null){
+            log = StructuredLogger.plugin();
         }
-        nlb.child("Loading Plugin Configuration");
 
         instance = this;
         this.rawConfig = config;
 
-        nlb.log("Loading config.yml from " + plugin.getDataFolder());
-
+        log.debug("loading configuration", Map.of("folder", plugin.getDataFolder().toString()));
 
         if(Objects.equals(this.rawConfig.getString("version", "default"), "default")) {
-            nlb.log("Configuration has default version string");
-            nlb.cont("Creating a new configuration file for you.");
+            log.info("config.yml has the default version string; writing a fresh one.");
             plugin.saveDefaultConfig();
             plugin.reloadConfig();
             this.rawConfig = plugin.getConfig();
         }
 
-        nlb.log("Loading messages.yml from " + plugin.getDataFolder());
         if(!new File(plugin.getDataFolder(), "messages.yml").exists()){
-            nlb.cont("messages.yml did not exist, creating it now.");
+            log.info("messages.yml did not exist; creating it.");
             plugin.saveResource("messages.yml", false);
         }
         this.rawMessages = YamlConfiguration.loadConfiguration(new File(plugin.getDataFolder(), "messages.yml"));
@@ -83,6 +82,11 @@ public class Config {
         hash = this.rawConfig.getString("hash", "OLD");
         debug = this.rawConfig.getBoolean("debug", false);
 
+        // Defaulted rather than required: these were added in 3.0 and every configuration written
+        // before it is missing them, so an absent section has to mean "the bin we ship with".
+        debugBinUploadUrl = this.rawConfig.getString("debug_bin.upload_url", DebugBin.DEFAULT_UPLOAD_URL);
+        debugBinViewUrl = this.rawConfig.getString("debug_bin.view_url", DebugBin.DEFAULT_VIEW_URL);
+
         try{
             LoadMessages(plugin);
         }catch(IOException e){
@@ -96,7 +100,11 @@ public class Config {
         // they exist and quietly drop every rule that uses one.
         this.ruleset = new Ruleset(this.rawConfig.getConfigurationSection("rules"));
 
-        nlb.parent();
+        log.debug("configuration loaded", Map.of(
+                "version", version,
+                "debug", debug,
+                "default_behavior", defaultBehavior.toString(),
+                "notify_channel", notifyChannel.toString()));
 
     }
 
@@ -110,6 +118,16 @@ public class Config {
 
     public boolean isDebug() {
         return debug;
+    }
+
+    /** Where {@code /bki debug upload} sends a report. */
+    public String getDebugBinUploadUrl() {
+        return debugBinUploadUrl;
+    }
+
+    /** Where the link it hands back points, with {@code {key}} replaced by the bin's id. */
+    public String getDebugBinViewUrl() {
+        return debugBinViewUrl;
     }
 
     public DefaultBehavior getDefaultBehavior() {
@@ -128,13 +146,13 @@ public class Config {
     }
 
     /**
-     * Build the rules now, and narrate it into {@code nlb}.
+     * Build the rules now, and narrate it into {@code log}.
      * <p>
      * Used where the result is wanted immediately and in context: plugin startup, and
      * {@code /bki reload}. Everywhere else {@link #invalidateRules()} is enough.
      */
-    public void buildRules(NestedLogBuilder nlb) {
-        ruleset.build(nlb);
+    public void buildRules(BkiLogger log) {
+        ruleset.build(log);
     }
 
     /**

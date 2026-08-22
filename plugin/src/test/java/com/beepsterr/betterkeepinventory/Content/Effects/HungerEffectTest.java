@@ -2,7 +2,6 @@ package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.configuration.MemoryConfiguration;
 import org.junit.jupiter.api.AfterEach;
@@ -50,7 +49,7 @@ class HungerEffectTest {
 
         DeathContextImpl ctx = TestContexts.death(player);
         effect.onDeath(ctx);
-        ctx.enterRespawnPhase(player, null, new NoopLogger());
+        ctx.enterRespawnPhase(player, null);
         effect.onRespawn(ctx);
         server.getScheduler().performTicks(6); // respawn re-applies on a delayed task
 
@@ -64,7 +63,7 @@ class HungerEffectTest {
 
         DeathContextImpl ctx = TestContexts.death(player);
         effect.onDeath(ctx);
-        ctx.enterRespawnPhase(player, null, new NoopLogger());
+        ctx.enterRespawnPhase(player, null);
         effect.onRespawn(ctx);
         server.getScheduler().performTicks(6);
 
@@ -88,7 +87,7 @@ class HungerEffectTest {
         player.setFoodLevel(10);
         DeathContextImpl later = TestContexts.death(player);
         effect.onDeath(later);
-        later.enterRespawnPhase(player, null, new NoopLogger());
+        later.enterRespawnPhase(player, null);
         effect.onRespawn(later);
         server.getScheduler().performTicks(6);
 

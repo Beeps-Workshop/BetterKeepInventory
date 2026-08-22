@@ -2,7 +2,6 @@ package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Location;
 import org.bukkit.configuration.MemoryConfiguration;
@@ -69,7 +68,7 @@ class LightningEffectTest {
         // on_respawn defaults to false, so a rule that only asks for a death strike must not
         // fire a second one when the player comes back.
         DeathContextImpl ctx = TestContexts.death(player);
-        ctx.enterRespawnPhase(player, null, new NoopLogger());
+        ctx.enterRespawnPhase(player, null);
 
         new LightningEffect(new MemoryConfiguration()).onRespawn(ctx);
         server.getScheduler().performTicks(10);
@@ -80,7 +79,7 @@ class LightningEffectTest {
     @Test
     void doesNotScheduleAnythingWhenRespawnStrikesAreOff() {
         DeathContextImpl ctx = TestContexts.death(player);
-        ctx.enterRespawnPhase(player, null, new NoopLogger());
+        ctx.enterRespawnPhase(player, null);
 
         effect(true, false).onRespawn(ctx);
         server.getScheduler().performTicks(10);

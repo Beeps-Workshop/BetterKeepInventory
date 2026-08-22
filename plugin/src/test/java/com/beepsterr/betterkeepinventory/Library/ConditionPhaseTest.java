@@ -1,7 +1,6 @@
 package com.beepsterr.betterkeepinventory.Library;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Location;
 import org.bukkit.configuration.MemoryConfiguration;
@@ -69,7 +68,7 @@ class ConditionPhaseTest {
         // The server puts them somewhere else entirely -- a nether death respawning in the
         // overworld, or the other way about.
         player.teleport(new Location(nether, 0, 64, 0));
-        ctx.enterRespawnPhase(player, null, new NoopLogger());
+        ctx.enterRespawnPhase(player, null);
         rule.trigger(ctx);
 
         server.getScheduler().performTicks(6);
@@ -88,7 +87,7 @@ class ConditionPhaseTest {
         rule.trigger(ctx);
 
         player.teleport(overworld.getSpawnLocation());      // respawns in the overworld
-        ctx.enterRespawnPhase(player, null, new NoopLogger());
+        ctx.enterRespawnPhase(player, null);
         rule.trigger(ctx);
 
         server.getScheduler().performTicks(6);
@@ -109,7 +108,7 @@ class ConditionPhaseTest {
 
         DeathContextImpl ctx = TestContexts.death(player, null);
         rule.trigger(ctx);
-        ctx.enterRespawnPhase(player, null, new NoopLogger());
+        ctx.enterRespawnPhase(player, null);
         rule.trigger(ctx);
 
         server.getScheduler().performTicks(6);

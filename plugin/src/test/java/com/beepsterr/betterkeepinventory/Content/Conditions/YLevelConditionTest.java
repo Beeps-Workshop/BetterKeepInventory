@@ -1,7 +1,6 @@
 package com.beepsterr.betterkeepinventory.Content.Conditions;
 
 import com.beepsterr.betterkeepinventory.Library.DeathContextImpl;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Location;
 import org.bukkit.configuration.MemoryConfiguration;
@@ -85,7 +84,7 @@ class YLevelConditionTest {
         DeathContextImpl ctx = TestContexts.death(player);
 
         player.teleport(new Location(world, 0, 300, 0));        // server moves them to spawn
-        ctx.enterRespawnPhase(player, null, new NoopLogger());
+        ctx.enterRespawnPhase(player, null);
 
         assertTrue(condition("0..64").check(ctx), "should still match where they died");
         assertFalse(condition("250..320").check(ctx), "must not match where they respawned");

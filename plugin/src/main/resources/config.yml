@@ -28,6 +28,13 @@ notify_channel: "STABLE"
 # Enable this if you want to see debug messages in the console or if the developer asked nicely
 debug: false
 
+# Where '/bki debug upload' sends its report, and where the link it gives you points.
+# You almost certainly do not need to touch this. Change it only if you run your own bin, or if
+# your server cannot reach the one below. {key} is replaced with the id the bin returns.
+debug_bin:
+  upload_url: "https://bin.workshop.beepsterr.com/post"
+  view_url: "https://bin.workshop.beepsterr.com/{key}"
+
 # Defines what the "default" KeepInventory behavior is for players
 # Options:
 # - INHERIT: Inherits from the server or world KeepInventory gamerule

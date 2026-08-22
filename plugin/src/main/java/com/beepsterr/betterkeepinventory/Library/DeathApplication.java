@@ -1,12 +1,13 @@
 package com.beepsterr.betterkeepinventory.Library;
 
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.Location;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.ExperienceOrb;
 import org.bukkit.entity.Player;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.Map;
 
 /**
  * Hands the two buckets to the world. The single point at which anything actually leaves the
@@ -28,7 +29,7 @@ public final class DeathApplication {
      *              present, its flags are set so the server does not also act on its own idea of
      *              what this death costs.
      */
-    public static void apply(DeathContextImpl ctx, PlayerDeathEvent event, LoggerInterface logger) {
+    public static void apply(DeathContextImpl ctx, PlayerDeathEvent event) {
 
         Player ply = ctx.player();
 
@@ -77,10 +78,14 @@ public final class DeathApplication {
             orb.setExperience(ctx.droppedExp());
         }
 
-        if (logger != null) {
-            logger.log("Applied: kept " + countStacks(ctx.inventory()) + " stacks and " + ctx.levels()
-                    + " levels, dropped " + droppedStacks + " stacks and " + ctx.droppedExp() + " experience.");
-        }
+        // The one line that says what the death actually cost. Debug level like the rest of the
+        // per-death narration -- a busy server dies constantly, and this is in the debug report
+        // either way.
+        ctx.logger().debug("death applied", Map.of(
+                "kept_stacks", countStacks(ctx.inventory()),
+                "kept_levels", ctx.levels(),
+                "dropped_stacks", droppedStacks,
+                "dropped_exp", ctx.droppedExp()));
     }
 
     private static int countStacks(ItemStack[] inventory) {

@@ -3,7 +3,6 @@ package com.beepsterr.betterkeepinventory.Library;
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
 import com.beepsterr.betterkeepinventory.api.Condition;
-import com.beepsterr.betterkeepinventory.support.NoopLogger;
 import com.beepsterr.betterkeepinventory.support.TestContexts;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;

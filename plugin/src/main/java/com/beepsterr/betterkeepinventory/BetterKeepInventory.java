@@ -14,7 +14,7 @@ import com.beepsterr.betterkeepinventory.Exceptions.UnloadableConfiguration;
 import com.beepsterr.betterkeepinventory.Library.Config;
 import com.beepsterr.betterkeepinventory.Library.Debugger;
 import com.beepsterr.betterkeepinventory.Library.MetricContainer;
-import com.beepsterr.betterkeepinventory.Library.NestedLogBuilder;
+import com.beepsterr.betterkeepinventory.Library.StructuredLogger;
 import com.beepsterr.betterkeepinventory.Library.Versions.Version;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChannel;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChecker;
@@ -23,6 +23,7 @@ import com.beepsterr.betterkeepinventory.Registries.PluginConditionRegistry;
 import com.beepsterr.betterkeepinventory.Registries.PluginEffectRegistry;
 import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
 import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPIImpl;
+import com.beepsterr.betterkeepinventory.api.BkiLogger;
 import com.tcoded.folialib.FoliaLib;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -31,6 +32,9 @@ import org.bukkit.event.Listener;
 import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.logging.Level;
@@ -62,20 +66,18 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
         instance = this;
         foliaLib = new FoliaLib(BetterKeepInventory.getInstance());
 
-        NestedLogBuilder nlb = new NestedLogBuilder();
-        nlb.log("BetterKeepInventory is starting up...");
-        nlb.cont("v" + version.toString());
-        nlb.spacer();
+        BkiLogger log = StructuredLogger.plugin();
+        log.info("BetterKeepInventory is starting up...", Map.of("version", version.toString()));
 
         // Initialize API
         BetterKeepInventoryAPI api = new BetterKeepInventoryAPIImpl(conditionRegistry, effectRegistry);
         getServer().getServicesManager().register(BetterKeepInventoryAPI.class, api, this, ServicePriority.Highest);
 
-        this.registerConditions(api, nlb);
-        this.registerEffects(api, nlb);
+        this.registerConditions(api, log);
+        this.registerEffects(api, log);
 
         try {
-            config = new Config(getConfig(), nlb);
+            config = new Config(getConfig(), log);
         }catch (UnloadableConfiguration e){
             CrashAndDisable("Configuration failed to load!\n" + e.getMessage());
             return;
@@ -88,7 +90,7 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
 
         // Our own conditions and effects are registered above, so the tree can be built now.
         // Addons enable after us and will invalidate it again through the listeners.
-        config.buildRules(nlb);
+        config.buildRules(log);
 
         // event handlers
         getServer().getPluginManager().registerEvents(new OnPlayerDeath(this), this);
@@ -105,16 +107,15 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
 
         // Enable PAPI Integration
         if(checkDependency("PlaceholderAPI")){
-            nlb.log("Hello PlaceholderAPI! Registering expansion...");
+            log.info("Hello PlaceholderAPI! Registering expansion...");
             new BetterKeepInventoryPlaceholderExpansion().register();
         }
 
         if(config.getNotifyChannel() != VersionChannel.NONE){
-            nlb.log("Setting up Version Checker...");
+            log.debug("setting up the version checker",
+                    Map.of("channel", config.getNotifyChannel().toString()));
             versionChecker = new VersionChecker(config.getNotifyChannel());
         }
-
-        nlb.end();
 
     }
 
@@ -127,6 +128,9 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
         if(versionChecker != null){
             versionChecker.CancelCheck();
         }
+
+        // Release latest.log. The next start rotates it to previous.log.
+        debugger.close();
     }
 
     private void onRegistrationsChanged() {
@@ -135,63 +139,67 @@ public class BetterKeepInventory extends JavaPlugin implements Listener {
         }
     }
 
-    private void registerEffects(BetterKeepInventoryAPI api, NestedLogBuilder nlb) {
+    private void registerEffects(BetterKeepInventoryAPI api, BkiLogger log) {
 
-        nlb.child("Registry: Effects");
+        // One line naming all of them rather than one line each: without a tree to group them,
+        // fifteen consecutive one-word lines are noise in a console someone is scanning.
+        List<String> registered = new ArrayList<>();
 
         // register built-in effects
-        nlb.log("damage");
         api.effectRegistry().register(this, "damage", DamageItemEffect::new);
-        nlb.log("drop");
+        registered.add("damage");
         api.effectRegistry().register(this, "drop", DropItemEffect::new);
-        nlb.log("exp");
+        registered.add("drop");
         api.effectRegistry().register(this, "exp", ExpEffect::new);
-        nlb.log("hunger");
+        registered.add("exp");
         api.effectRegistry().register(this, "hunger", HungerEffect::new);
-        nlb.log("kick");
+        registered.add("hunger");
         api.effectRegistry().register(this, "kick", KickEffect::new);
-        nlb.log("ban");
+        registered.add("kick");
         api.effectRegistry().register(this, "ban", BanEffect::new);
-        nlb.log("command");
+        registered.add("ban");
         api.effectRegistry().register(this, "command", CommandEffect::new);
-        nlb.log("lightning");
+        registered.add("command");
         api.effectRegistry().register(this, "lightning", LightningEffect::new);
+        registered.add("lightning");
 
         if(checkDependency("Vault")){
-            nlb.log("vault");
             api.effectRegistry().register(this, "vault", VaultEffect::new);
+            registered.add("vault");
         }
 
-        nlb.parent();
+        log.info("registered " + registered.size() + " effects: " + String.join(", ", registered),
+                Map.of("effects", String.join(",", registered)));
 
     }
 
-    private void registerConditions(BetterKeepInventoryAPI api, NestedLogBuilder nlb) {
+    private void registerConditions(BetterKeepInventoryAPI api, BkiLogger log) {
 
-        nlb.child("Registry: Conditions");
+        List<String> registered = new ArrayList<>();
 
         // register built-in conditions
-        nlb.log("worlds");
         api.conditionRegistry().register(this, "worlds", WorldsCondition::new);
-        nlb.log("permissions");
+        registered.add("worlds");
         api.conditionRegistry().register(this, "permissions", PermissionsCondition::new);
-        nlb.log("cause");
+        registered.add("permissions");
         api.conditionRegistry().register(this, "cause", CauseCondition::new);
-        nlb.log("y_level");
+        registered.add("cause");
         api.conditionRegistry().register(this, "y_level", YLevelCondition::new);
-        nlb.log("light_level");
+        registered.add("y_level");
         api.conditionRegistry().register(this, "light_level", LightLevelCondition::new);
+        registered.add("light_level");
 
         if(checkDependency("Vault")){
-            nlb.log("vault");
             api.conditionRegistry().register(this, "vault", VaultCondition::new);
+            registered.add("vault");
         }
         if(checkDependency("PlaceholderAPI")){
-            nlb.log("placeholders");
             api.conditionRegistry().register(this, "placeholders", PlaceholderCondition::new);
+            registered.add("placeholders");
         }
 
-        nlb.parent();
+        log.info("registered " + registered.size() + " conditions: " + String.join(", ", registered),
+                Map.of("conditions", String.join(",", registered)));
 
     }
 
