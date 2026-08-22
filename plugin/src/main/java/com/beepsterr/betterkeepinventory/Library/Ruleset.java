@@ -4,6 +4,7 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
 
 /**
  * The active rule tree: built from configuration, then held and reused.
@@ -72,7 +73,13 @@ public class Ruleset {
      */
     public synchronized List<ConfigRule> build(NestedLogBuilder nlb) {
 
-        NestedLogBuilder log = nlb != null ? nlb : new NestedLogBuilder();
+        // A rebuild happens whenever any plugin registers or unregisters something, so at the
+        // default level every addon that enables would dump the whole rule tree to the console.
+        // Matches the death handlers: visible only when debug is on.
+        Config config = Config.getInstance();
+        NestedLogBuilder log = nlb != null
+                ? nlb
+                : new NestedLogBuilder(config != null && config.isDebug() ? Level.INFO : Level.FINE);
 
         List<ConfigRule> built = new ArrayList<>();
 

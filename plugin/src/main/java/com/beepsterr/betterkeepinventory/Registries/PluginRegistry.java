@@ -19,16 +19,24 @@ import java.util.Set;
  * mean the same thing regardless of the order plugins happened to enable in -- storing the
  * bare key at registration time would hand it to whoever got there first, and enable order is
  * neither stable nor visible to the server owner.
+ *
+ * <h2>Threading</h2>
+ * Registration happens on the main thread as plugins enable, but lookups happen wherever the rule
+ * tree is being parsed -- which, because {@code Ruleset} rebuilds on demand, can be a death or
+ * region thread on Folia. Reads and writes are therefore synchronized rather than merely
+ * insertion-ordered; a {@code LinkedHashMap} being resized while another thread streams it is
+ * the kind of fault that shows up once a month and never reproduces.
  */
 public abstract class PluginRegistry<T> implements Registry<T> {
 
     /** BetterKeepInventory itself, which always wins a bare key it provides. */
     private final Plugin owner;
 
-    private final Map<String, RegistryEntry<T>> entries = new LinkedHashMap<>();
+    private final Map<String, RegistryEntry<T>> entries =
+            Collections.synchronizedMap(new LinkedHashMap<>());
 
     /** Bare keys already reported as ambiguous, so the warning is printed once and not per lookup. */
-    private final Set<String> reportedCollisions = new HashSet<>();
+    private final Set<String> reportedCollisions = Collections.synchronizedSet(new HashSet<>());
 
     /** Notified whenever registrations change, so the rule tree can be rebuilt. */
     private Runnable changeListener = () -> {};
@@ -67,9 +75,12 @@ public abstract class PluginRegistry<T> implements Registry<T> {
 
     @Override
     public int unregisterAll(Plugin plugin) {
-        int before = entries.size();
-        entries.values().removeIf(entry -> entry.plugin().equals(plugin));
-        int removed = before - entries.size();
+        int removed;
+        synchronized (entries) {
+            int before = entries.size();
+            entries.values().removeIf(entry -> entry.plugin().equals(plugin));
+            removed = before - entries.size();
+        }
         if (removed > 0) {
             changeListener.run();
         }
@@ -99,15 +110,18 @@ public abstract class PluginRegistry<T> implements Registry<T> {
             return exact;
         }
 
-        List<Map.Entry<String, RegistryEntry<T>>> candidates = entries.entrySet().stream()
+        List<Map.Entry<String, RegistryEntry<T>>> candidates;
+        synchronized (entries) {
+            candidates = entries.entrySet().stream()
                 .filter(entry -> bareKeyOf(entry).equals(lookup))
                 .sorted(Comparator
                         // The core plugin's own entry wins, so an addon can never take over
                         // 'drop' or 'damage' and silently change what existing configs mean.
                         .comparingInt((Map.Entry<String, RegistryEntry<T>> entry) ->
                                 entry.getValue().plugin().equals(owner) ? 0 : 1)
-                        .thenComparing(entry -> entry.getValue().plugin().getName().toLowerCase()))
-                .toList();
+                            .thenComparing(entry -> entry.getValue().plugin().getName().toLowerCase()))
+                    .toList();
+        }
 
         if (candidates.isEmpty()) {
             return null;
@@ -141,6 +155,10 @@ public abstract class PluginRegistry<T> implements Registry<T> {
 
     @Override
     public Map<String, RegistryEntry<T>> getAll() {
-        return Collections.unmodifiableMap(entries);
+        // A copy rather than a view: callers iterate this (the registry command, and tests), and
+        // a view over a synchronized map still needs the caller to hold the lock to do that.
+        synchronized (entries) {
+            return Collections.unmodifiableMap(new LinkedHashMap<>(entries));
+        }
     }
 }
