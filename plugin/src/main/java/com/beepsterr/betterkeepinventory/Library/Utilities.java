@@ -1,12 +1,38 @@
 package com.beepsterr.betterkeepinventory.Library;
 
+import com.beepsterr.betterkeepinventory.api.Types.MaterialList;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
 public class Utilities {
+
+    /**
+     * The name an item carries itself: the custom_name component first, then the
+     * item_name component, which is what most custom item plugins set.
+     * Returns null when the item only has its material name.
+     * <p>
+     * Lives here and not in MaterialList because the api module compiles against
+     * spigot-api 1.19, which predates item_name.
+     */
+    public static String itemName(ItemMeta meta) {
+        if (meta == null) return null;
+        if (meta.hasDisplayName()) return meta.getDisplayName();
+        if (meta.hasItemName()) return meta.getItemName();
+        return null;
+    }
+
+    /**
+     * The name to show players: the item's own name, else the readable material name.
+     */
+    public static String itemDisplayName(ItemStack item) {
+        String name = itemName(item.getItemMeta());
+        return name != null ? name : MaterialList.GetName(item);
+    }
 
     /**
      * A Method to compare a string with a list of strings.

@@ -144,6 +144,44 @@ class DamageItemEffectTest {
     }
 
     @Test
+    void nameFilterMatchesTheItemNameComponent() {
+        ItemStack named = new ItemStack(Material.DIAMOND_PICKAXE);
+        var namedMeta = named.getItemMeta();
+        namedMeta.setItemName("Ruby Pickaxe");
+        named.setItemMeta(namedMeta);
+        player.getInventory().addItem(named);
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));
+
+        MemoryConfiguration cfg = new MemoryConfiguration();
+        cfg.set("mode", "PERCENTAGE");
+        cfg.set("min", 10.0);
+        cfg.set("max", 10.0);
+        cfg.set("filters.name", List.of("Ruby Pickaxe"));
+        new DamageItemEffect(cfg).onDeath(player, null, new NoopLogger());
+
+        int expected = (int) (Material.DIAMOND_PICKAXE.getMaxDurability() * 0.10);
+        assertEquals(expected, damageOf(player.getInventory().getItem(0)),
+                "item named via the item_name component should match the name filter");
+        assertEquals(0, damageOf(player.getInventory().getItem(1)),
+                "unnamed pickaxe should be filtered out");
+    }
+
+    @Test
+    void unnamedItemsSurviveAConfiguredNameFilter() {
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));
+
+        MemoryConfiguration cfg = new MemoryConfiguration();
+        cfg.set("mode", "PERCENTAGE");
+        cfg.set("min", 10.0);
+        cfg.set("max", 10.0);
+        cfg.set("filters.name", List.of("Ruby Pickaxe"));
+        new DamageItemEffect(cfg).onDeath(player, null, new NoopLogger());
+
+        assertEquals(0, damageOf(player.getInventory().getItem(0)),
+                "an item with no name at all must not blow up or match the filter");
+    }
+
+    @Test
     void nonDamageableItemsAreLeftAlone() {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND, 5));
         player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));

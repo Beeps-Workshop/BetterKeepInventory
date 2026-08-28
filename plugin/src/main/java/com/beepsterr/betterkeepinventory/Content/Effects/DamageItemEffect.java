@@ -83,8 +83,9 @@ public class DamageItemEffect implements Effect {
             };
 
             if(meta != null){
-                if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(meta.getDisplayName(), nameFilters)){
-                    plugin.debug(ply, "Damage skipped due to name filter: " + item.getType() + " with name " + meta.getDisplayName());
+                String customName = Utilities.itemName(meta);
+                if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(customName == null ? "" : customName, nameFilters)){
+                    plugin.debug(ply, "Damage skipped due to name filter: " + item.getType() + " with name " + customName);
                     continue;
                 };
                 if(meta.getLore() != null){
@@ -124,7 +125,7 @@ public class DamageItemEffect implements Effect {
             if (damageToTake <= 0) continue; // Unbreaking can reduce damage to 0
             Map<String, String> replacements = new HashMap<>();
             replacements.put("amount", String.valueOf(damageToTake));
-            replacements.put("item", MaterialList.GetName(item));
+            replacements.put("item", Utilities.itemDisplayName(item));
 
             plugin.metrics.durabilityPointsLost += damageToTake;
 

@@ -76,8 +76,9 @@ public class DropItemEffect implements Effect {
             };
 
             if(meta != null){
-                if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(meta.getDisplayName(), nameFilters)){
-                    plugin.debug(ply, "Drop skipped due to name filter: " + item.getType() + " with name " + meta.getDisplayName());
+                String customName = Utilities.itemName(meta);
+                if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(customName == null ? "" : customName, nameFilters)){
+                    plugin.debug(ply, "Drop skipped due to name filter: " + item.getType() + " with name " + customName);
                     continue;
                 };
                 if(meta.getLore() != null){
@@ -117,7 +118,7 @@ public class DropItemEffect implements Effect {
 
             Map<String, String> replacements = new HashMap<>();
             replacements.put("amount", String.valueOf(removalCount));
-            replacements.put("item", MaterialList.GetName(item));
+            replacements.put("item", Utilities.itemDisplayName(item));
             plugin.config.sendMessage(ply, "effects.drop", replacements);
 
             plugin.debug(ply, "DropItemEffect: Dropping " + removalCount + " items from slot " + i + " (" + item.getType() + ")");
