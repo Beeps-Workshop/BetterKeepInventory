@@ -42,6 +42,11 @@ public class VaultEffect implements Effect {
         BetterKeepInventory plugin = BetterKeepInventory.getInstance();
         Random rng = plugin.rng;
 
+        if (!vault.hasEconomy()) {
+            plugin.debug(ply, "EconomyLoss skipped: Vault is installed but no economy plugin is providing balances");
+            return;
+        }
+
         double playerBalance = vault.getPlayerBalance(ply);
         double balanceLoss = calculateLoss(playerBalance, rng);
 

@@ -21,6 +21,10 @@ public class VaultCondition implements Condition {
 
         BetterKeepInventory.getInstance().debug(ply, "Checking economy condition: Minimum balance required = " + minBalance);
         Vault vault = new Vault(BetterKeepInventory.getInstance());
+        if (!vault.hasEconomy()) {
+            BetterKeepInventory.getInstance().debug(ply, "Economy condition not met: Vault is installed but no economy plugin is providing balances");
+            return false;
+        }
         return vault.getPlayerBalance(ply) >= minBalance;
     }
 }
