@@ -93,6 +93,107 @@ class DamageItemEffectTest {
     }
 
     @Test
+    void unbreakableItemsAreLeftAlone() {
+        ItemStack pickaxe = new ItemStack(Material.DIAMOND_PICKAXE);
+        var meta = pickaxe.getItemMeta();
+        meta.setUnbreakable(true);
+        pickaxe.setItemMeta(meta);
+        player.getInventory().addItem(pickaxe);
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND_SWORD));
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("PERCENTAGE", 10.0, 10.0).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(0, damageOf(player.getInventory().getItem(0)),
+                "unbreakable pickaxe should take no durability damage");
+        assertEquals((int) (Material.DIAMOND_SWORD.getMaxDurability() * 0.10),
+                damageOf(player.getInventory().getItem(1)),
+                "breakable sword should still be damaged");
+    }
+
+    @Test
+    void unbreakableItemsDoNotBreakAtNearMaxDamage() {
+        ItemStack pickaxe = withDamage(Material.DIAMOND_PICKAXE,
+                Material.DIAMOND_PICKAXE.getMaxDurability() - 1);
+        var meta = pickaxe.getItemMeta();
+        meta.setUnbreakable(true);
+        pickaxe.setItemMeta(meta);
+        player.getInventory().addItem(pickaxe);
+
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("PERCENTAGE", 50.0, 50.0).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(Material.DIAMOND_PICKAXE, player.getInventory().getItem(0).getType(),
+                "unbreakable pickaxe should survive damage that would break a normal one");
+        assertEquals(1, player.getInventory().getItem(0).getAmount(),
+                "unbreakable pickaxe should not be consumed by the break branch");
+        assertEquals(Material.DIAMOND_PICKAXE.getMaxDurability() - 1,
+                damageOf(player.getInventory().getItem(0)),
+                "unbreakable pickaxe should keep its existing damage value");
+    }
+
+    @Test
+    void maxDamageComponentOverridesMaterialDurability() {
+        ItemStack pickaxe = new ItemStack(Material.DIAMOND_PICKAXE);
+        Damageable meta = (Damageable) pickaxe.getItemMeta();
+        meta.setMaxDamage(100);
+        pickaxe.setItemMeta(meta);
+        player.getInventory().addItem(pickaxe);
+
+        // PERCENTAGE 10% of the item's own max_damage (100), not the material's 1561
+        DeathContextImpl ctx = TestContexts.death(player);
+        effect("PERCENTAGE", 10.0, 10.0).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(10, damageOf(player.getInventory().getItem(0)),
+                "damage should scale off the max_damage component, not Material#getMaxDurability");
+    }
+
+    @Test
+    void nameFilterMatchesTheItemNameComponent() {
+        ItemStack named = new ItemStack(Material.DIAMOND_PICKAXE);
+        var namedMeta = named.getItemMeta();
+        namedMeta.setItemName("Ruby Pickaxe");
+        named.setItemMeta(namedMeta);
+        player.getInventory().addItem(named);
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));
+
+        MemoryConfiguration cfg = new MemoryConfiguration();
+        cfg.set("mode", "PERCENTAGE");
+        cfg.set("min", 10.0);
+        cfg.set("max", 10.0);
+        cfg.set("filters.name", List.of("Ruby Pickaxe"));
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DamageItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        int expected = (int) (Material.DIAMOND_PICKAXE.getMaxDurability() * 0.10);
+        assertEquals(expected, damageOf(player.getInventory().getItem(0)),
+                "item named via the item_name component should match the name filter");
+        assertEquals(0, damageOf(player.getInventory().getItem(1)),
+                "unnamed pickaxe should be filtered out");
+    }
+
+    @Test
+    void unnamedItemsSurviveAConfiguredNameFilter() {
+        player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));
+
+        MemoryConfiguration cfg = new MemoryConfiguration();
+        cfg.set("mode", "PERCENTAGE");
+        cfg.set("min", 10.0);
+        cfg.set("max", 10.0);
+        cfg.set("filters.name", List.of("Ruby Pickaxe"));
+        DeathContextImpl ctx = TestContexts.death(player);
+        new DamageItemEffect(cfg).onDeath(ctx);
+        TestContexts.apply(ctx);
+
+        assertEquals(0, damageOf(player.getInventory().getItem(0)),
+                "an item with no name at all must not blow up or match the filter");
+    }
+
+    @Test
     void nonDamageableItemsAreLeftAlone() {
         player.getInventory().addItem(new ItemStack(Material.DIAMOND, 5));
         player.getInventory().addItem(new ItemStack(Material.DIAMOND_PICKAXE));

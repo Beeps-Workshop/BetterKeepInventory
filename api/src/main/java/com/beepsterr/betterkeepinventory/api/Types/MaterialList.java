@@ -125,20 +125,27 @@ public class MaterialList {
         return allowedMaterials;
     }
 
+    /**
+     * The name an item carries itself: the custom_name component first, then the
+     * item_name component, which is what most custom item plugins set.
+     * Returns null when the item only has its material name.
+     */
+    public static String GetCustomName(ItemMeta meta){
+        if (meta == null) return null;
+        if (meta.hasDisplayName()) return meta.getDisplayName();
+        if (meta.hasItemName()) return meta.getItemName();
+        return null;
+    }
+
     // TODO: When dropping 1.19, migrate to use Material#GetTranslationKey()
     public static String GetName(ItemStack item){
-        ItemMeta meta = item.getItemMeta();
-        String displayName;
+        String customName = GetCustomName(item.getItemMeta());
+        if (customName != null) return customName;
 
-        if (meta != null && meta.hasDisplayName()) {
-            displayName = meta.getDisplayName(); // Use the custom name if present
-        } else {
-            // Fallback to a readable name from the enum
-            displayName = Arrays.stream(item.getType().toString().split("_"))
-                    .map(part -> part.substring(0, 1).toUpperCase() + part.substring(1).toLowerCase())
-                    .collect(Collectors.joining(" "));
-        }
-        return displayName;
+        // Fallback to a readable name from the enum
+        return Arrays.stream(item.getType().toString().split("_"))
+                .map(part -> part.substring(0, 1).toUpperCase() + part.substring(1).toLowerCase())
+                .collect(Collectors.joining(" "));
     }
 
 }

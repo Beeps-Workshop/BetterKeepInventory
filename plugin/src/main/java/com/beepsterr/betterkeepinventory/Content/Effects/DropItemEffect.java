@@ -124,8 +124,9 @@ public class DropItemEffect implements Effect {
         var meta = item.getItemMeta();
         if (meta == null) return true;
 
-        if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(meta.getDisplayName(), nameFilters)) {
-            plugin.debug(ply, "Drop skipped due to name filter: " + item.getType() + " with name " + meta.getDisplayName());
+        String customName = MaterialList.GetCustomName(meta);
+        if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(customName == null ? "" : customName, nameFilters)) {
+            plugin.debug(ply, "Drop skipped due to name filter: " + item.getType() + " with name " + customName);
             return false;
         }
 

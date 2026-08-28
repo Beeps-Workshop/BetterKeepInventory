@@ -85,6 +85,27 @@ class MaterialListTest {
     }
 
     @Test
+    void getNameUsesItemNameComponentWhenThereIsNoDisplayName() {
+        ItemStack item = new ItemStack(Material.DIAMOND_SWORD);
+        ItemMeta meta = item.getItemMeta();
+        meta.setItemName("Ruby Sword");
+        item.setItemMeta(meta);
+
+        assertEquals("Ruby Sword", MaterialList.GetName(item));
+    }
+
+    @Test
+    void getNamePrefersDisplayNameOverItemName() {
+        ItemStack item = new ItemStack(Material.DIAMOND_SWORD);
+        ItemMeta meta = item.getItemMeta();
+        meta.setItemName("Ruby Sword");
+        meta.setDisplayName("Excalibur");
+        item.setItemMeta(meta);
+
+        assertEquals("Excalibur", MaterialList.GetName(item));
+    }
+
+    @Test
     void getNamePrefersCustomDisplayName() {
         ItemStack item = new ItemStack(Material.DIAMOND_SWORD);
         ItemMeta meta = item.getItemMeta();

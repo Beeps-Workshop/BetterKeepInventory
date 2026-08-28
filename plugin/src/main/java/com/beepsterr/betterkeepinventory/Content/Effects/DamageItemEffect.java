@@ -91,8 +91,9 @@ public class DamageItemEffect implements Effect {
             };
 
             if(meta != null){
-                if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(meta.getDisplayName(), nameFilters)){
-                    plugin.debug(ply, "Damage skipped due to name filter: " + item.getType() + " with name " + meta.getDisplayName());
+                String customName = MaterialList.GetCustomName(meta);
+                if (!nameFilters.isEmpty() && !Utilities.advancedStringCompare(customName == null ? "" : customName, nameFilters)){
+                    plugin.debug(ply, "Damage skipped due to name filter: " + item.getType() + " with name " + customName);
                     continue;
                 };
                 if(meta.getLore() != null){
@@ -114,8 +115,16 @@ public class DamageItemEffect implements Effect {
                 continue;
             };
 
+            if (damageableMeta.isUnbreakable()) {
+                plugin.debug(ply, "Damage skipped due to item being unbreakable: " + item.getType());
+                continue;
+            }
+
             int currentDamageTaken = damageableMeta.getDamage();
-            int maxDurability = item.getType().getMaxDurability();
+            // the max_damage component overrides the material's durability on custom items
+            int maxDurability = damageableMeta.hasMaxDamage()
+                    ? damageableMeta.getMaxDamage()
+                    : item.getType().getMaxDurability();
             if (maxDurability <= 0) continue; // item can't hold durability (e.g. blocks/food) — skip so we don't tag it or spam "0 damage"
             int damageToTake = calculateDamage(rng, currentDamageTaken, maxDurability);
 
