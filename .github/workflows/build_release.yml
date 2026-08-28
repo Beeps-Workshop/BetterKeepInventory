@@ -8,11 +8,16 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to build (e.g. v2.3.0)'
+        description: 'Tag to build (e.g. v3.0.0)'
         required: true
 
 jobs:
+  # Nothing ships without the end-to-end suite passing.
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+
   prepare:
+    needs: e2e
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}

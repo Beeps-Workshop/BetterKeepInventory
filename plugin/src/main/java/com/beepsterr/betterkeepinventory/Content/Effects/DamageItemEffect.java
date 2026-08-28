@@ -1,8 +1,8 @@
 package com.beepsterr.betterkeepinventory.Content.Effects;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
-import com.beepsterr.betterkeepinventory.Library.Utilities;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
+import com.beepsterr.betterkeepinventory.api.Utilities;
 import com.beepsterr.betterkeepinventory.api.Types.MaterialList;
 import com.beepsterr.betterkeepinventory.api.Types.SlotType;
 import com.beepsterr.betterkeepinventory.api.Effect;
@@ -11,8 +11,6 @@ import org.bukkit.Sound;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.Damageable;
 
@@ -52,12 +50,14 @@ public class DamageItemEffect implements Effect {
     }
 
     @Override
-    public void onRespawn(Player player, PlayerRespawnEvent event, LoggerInterface logger) {
+    public void onRespawn(DeathContext ctx) {
         // This effect doesn't do anything on respawn (yet)
     }
 
     @Override
-    public void onDeath(Player ply, PlayerDeathEvent event, LoggerInterface logger) {
+    public void onDeath(DeathContext ctx) {
+        Player ply = ctx.player();
+
         BetterKeepInventory plugin = BetterKeepInventory.getInstance();
         Random rng = plugin.rng;
 
@@ -65,9 +65,17 @@ public class DamageItemEffect implements Effect {
         List<Material> items = this.items.getMaterials();
 
         BetterKeepInventory.instance.debug(ply, "The Items Are " + items);
-        for (int i = 0; i < ply.getInventory().getSize(); i++) {
 
-            var item = ply.getInventory().getItem(i);
+        // Only what the player is keeping. Damaging things already bound for the ground would be
+        // new behaviour rather than a fix -- under DROP with the world gamerule off, which is the
+        // usual case, this has never touched them. A rule that wants gear beaten up *and then*
+        // dropped says so by ordering `damage` before a `drop` effect, where the items are still
+        // in a slot and slot filters still mean something.
+        ItemStack[] inventory = ctx.inventory();
+
+        for (int i = 0; i < inventory.length; i++) {
+
+            var item = inventory[i];
             if(item == null) continue;
 
             var meta = item.getItemMeta();

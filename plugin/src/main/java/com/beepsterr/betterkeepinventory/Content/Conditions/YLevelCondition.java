@@ -1,12 +1,9 @@
 package com.beepsterr.betterkeepinventory.Content.Conditions;
 
-import com.beepsterr.betterkeepinventory.Library.NumberRange;
 import com.beepsterr.betterkeepinventory.api.Condition;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
+import com.beepsterr.betterkeepinventory.api.Types.NumberRange;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 /**
  * Condition that checks the Y-level (height) where the player died.
@@ -36,8 +33,10 @@ public class YLevelCondition implements Condition {
     }
 
     @Override
-    public boolean check(Player ply, PlayerDeathEvent deathEvent, PlayerRespawnEvent respawnEvent, LoggerInterface logger) {
-        double y = ply.getLocation().getY();
-        return range.contains(y);
+    public boolean check(DeathContext ctx) {
+        // The death location, not the player's current one. This used to read the live location,
+        // which in the respawn phase is wherever the server has since put them -- so a rule
+        // matching on the depth someone died at could evaluate against their spawn point instead.
+        return range.contains(ctx.deathLocation().getY());
     }
 }

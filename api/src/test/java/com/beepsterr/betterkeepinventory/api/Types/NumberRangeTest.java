@@ -1,4 +1,4 @@
-package com.beepsterr.betterkeepinventory.Library;
+package com.beepsterr.betterkeepinventory.api.Types;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

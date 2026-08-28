@@ -6,7 +6,9 @@ import com.beepsterr.betterkeepinventory.Library.Versions.Version;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChannel;
 import com.beepsterr.betterkeepinventory.api.BetterKeepInventoryAPI;
 import com.beepsterr.betterkeepinventory.Library.Config;
+import com.beepsterr.betterkeepinventory.Library.StructuredLogger;
 import com.beepsterr.betterkeepinventory.Library.Versions.VersionChecker;
+import com.beepsterr.betterkeepinventory.api.Registry;
 import com.beepsterr.betterkeepinventory.api.RegistryEntry;
 import net.md_5.bungee.api.ChatColor;
 import net.md_5.bungee.api.chat.ClickEvent;
@@ -60,18 +62,22 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             if(checkPerm(sender, "betterkeepinventory.version")){
 
                 // Update checking
-                if(plugin.versionChecker.channel != VersionChannel.NONE) {
-                    boolean isUpdateAvailable = plugin.versionChecker.IsUpdateAvailable();
-                    if (!isUpdateAvailable) {
+                // Null when update checks are off -- the checker is only constructed when the
+                // channel is something other than NONE.
+                if(plugin.versionChecker != null && plugin.versionChecker.channel != VersionChannel.NONE) {
+                    // One read: the checker thread can clear this between an "is there one?" and
+                    // a "what is it?".
+                    VersionChecker.Update available = plugin.versionChecker.getAvailableUpdate();
+                    if (available == null) {
                         sender.sendMessage("" + ChatColor.GREEN + ChatColor.ITALIC + "No updates available.");
                     }else{
 
-                        String updateURL = switch(plugin.versionChecker.channel) {
-                            case SNAPSHOT -> "https://github.com/BeepSterr/BetterKeepInventory/actions/workflows/build_snapshot.yml";
-                            default -> "https://www.spigotmc.org/resources/betterkeepinventory.93081/";
-                        };
+                        // The page for this exact version, not the list: the checker already
+                        // worked out which one this server can run, so making someone pick again
+                        // from a list is where they choose the wrong one.
+                        String updateURL = available.downloadUrl();
 
-                        TextComponent updateAvailableComponent = new TextComponent(plugin.versionChecker.foundVersion.toString() + " is available for download!");
+                        TextComponent updateAvailableComponent = new TextComponent(available + " is available for download!");
                         updateAvailableComponent.setColor(ChatColor.GOLD);
                         updateAvailableComponent.setItalic(true);
                         updateAvailableComponent.setClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, updateURL));
@@ -186,10 +192,10 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
         switch(args[1].toLowerCase()){
             case "effects":
-                printRegistryEntries(sender, "Registered Effects", api.effectRegistry().getAll());
+                printRegistryEntries(sender, "Registered Effects", api.effectRegistry());
                 break;
             case "conditions":
-                printRegistryEntries(sender, "Registered Conditions", api.conditionRegistry().getAll());
+                printRegistryEntries(sender, "Registered Conditions", api.conditionRegistry());
                 break;
             default:
                 sender.sendMessage(ChatColor.RED + "Unknown registry type: " + args[1]);
@@ -203,12 +209,10 @@ public class MainCommand implements CommandExecutor, TabCompleter {
     public static <T> void printRegistryEntries(
             CommandSender sender,
             String title,
-            Map<String, RegistryEntry<T>> allEntries
+            Registry<T> registry
     ) {
+        Map<String, RegistryEntry<T>> allEntries = registry.getAll();
         sender.sendMessage(ChatColor.GOLD + title + " (" + allEntries.size() + "):");
-
-        // Track printed short keys to avoid duplication
-        Set<String> printedShorts = new HashSet<>();
 
         for (Map.Entry<String, RegistryEntry<T>> entry : allEntries.entrySet()) {
             String fullKey = entry.getKey();
@@ -216,16 +220,17 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             Plugin plugin = regEntry.plugin();
 
             String pluginPrefix = plugin.getName().toLowerCase() + ".";
-            if (!fullKey.startsWith(pluginPrefix)) continue;
+            String shortKey = fullKey.startsWith(pluginPrefix)
+                    ? fullKey.substring(pluginPrefix.length())
+                    : fullKey;
 
-            String shortKey = fullKey.substring(pluginPrefix.length());
-
-            boolean showShort = allEntries.containsKey(shortKey)
-                    && allEntries.get(shortKey).plugin().equals(plugin)
-                    && printedShorts.add(shortKey); // ensure we only show the short key once
+            // Bare keys are resolved rather than stored, so ask the registry which entry this
+            // one currently points at instead of looking for it in the map.
+            RegistryEntry<T> resolved = registry.getFull(shortKey);
+            boolean ownsShortKey = resolved != null && resolved.equals(regEntry);
 
             String display = ChatColor.GREEN + fullKey;
-            if (showShort) {
+            if (ownsShortKey) {
                 display += ChatColor.LIGHT_PURPLE + " (" + shortKey + ")";
             }
 
@@ -259,7 +264,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         plugin.reloadConfig();
 
         try {
-            plugin.config = new Config(plugin.getConfig(), null);
+            plugin.config = new Config(plugin.getConfig(), StructuredLogger.plugin());
         }catch (UnloadableConfiguration e) {
 
             String alert = "\n"
@@ -274,6 +279,10 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
             return true;
         }
+
+        // Parse the rules here rather than leaving it to the next death, so a broken rule is
+        // reported to whoever ran the reload instead of surfacing hours later in a death log.
+        plugin.config.buildRules(StructuredLogger.plugin());
 
         sender.sendMessage(ChatColor.GREEN + "Configuration reloaded successfully.");
 
@@ -319,29 +328,38 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        sender.sendMessage(ChatColor.GRAY + "Generating...");
-        try{
-            BetterKeepInventory.getInstance().debugger.write();
-        }catch (RuntimeException e){
-            sender.sendMessage(ChatColor.RED + "Error: " + e.getMessage());
-            return true;
-        }
+        sender.sendMessage(ChatColor.GRAY + "Generating and uploading...");
 
-        sender.sendMessage(ChatColor.GRAY + "Uploading...");
-        try {
-            String key = BetterKeepInventory.getInstance().debugger.upload();
-            TextComponent textComponent = new TextComponent("Uploaded! https://bin.lunega.dev/" + key + " (click to copy URL)");
-            textComponent.setColor(ChatColor.GREEN);
-            textComponent.setClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, "https://bin.lunega.dev/" + key ));
-            sender.spigot().sendMessage(textComponent);
-        }catch (Exception e){
-            sender.sendMessage(ChatColor.RED + "Error: " + e.getMessage());
-            return true;
-        }
+        // Off the server thread. This writes a file and then blocks on a paste bin that may be
+        // slow or unreachable, and no timeout is long enough to make doing that on the main
+        // thread acceptable -- it would freeze every player on the server.
+        BetterKeepInventory.getScheduler().getScheduler().runAsync(task -> {
 
+            String url;
+            try {
+                url = BetterKeepInventory.getInstance().debugger.upload();
+            } catch (Exception e) {
+                // Back onto a server thread before touching the sender, since we are no longer on
+                // one. The same applies to the success path below.
+                respond(sender, ChatColor.RED + "Debug upload failed: " + e.getMessage());
+                return;
+            }
+
+            BetterKeepInventory.getScheduler().getScheduler().runNextTick(back -> {
+                TextComponent uploaded = new TextComponent("Uploaded! " + url + " (click to copy URL)");
+                uploaded.setColor(ChatColor.GREEN);
+                uploaded.setClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, url));
+                sender.spigot().sendMessage(uploaded);
+            });
+        });
 
         return true;
 
+    }
+
+    /** Send a message from an asynchronous task, hopping back onto a server thread to do it. */
+    private static void respond(CommandSender sender, String message) {
+        BetterKeepInventory.getScheduler().getScheduler().runNextTick(task -> sender.sendMessage(message));
     }
 
     public boolean OnDebugVerboseCommand(CommandSender sender, Command command, String label, String[] args){

@@ -6,7 +6,13 @@ on:
     - cron: '0 10 * * *' # Daily 10:00 UTC
 
 jobs:
+  # A nightly snapshot is the first build most people actually run, so it gates on the
+  # end-to-end suite rather than only the unit tests.
+  e2e:
+    uses: ./.github/workflows/e2e.yml
+
   snapshot:
+    needs: e2e
     uses: Beeps-Workshop/.github/.github/workflows/snapshot.yml@main
     with:
       build-system: maven

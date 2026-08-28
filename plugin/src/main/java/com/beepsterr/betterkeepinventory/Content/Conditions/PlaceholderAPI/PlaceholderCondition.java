@@ -2,13 +2,11 @@ package com.beepsterr.betterkeepinventory.Content.Conditions.PlaceholderAPI;
 
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import com.beepsterr.betterkeepinventory.Library.PlaceholderItem;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
 import com.beepsterr.betterkeepinventory.api.Condition;
 import com.beepsterr.betterkeepinventory.api.Exceptions.ConditionParseError;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +28,9 @@ public class PlaceholderCondition implements Condition {
     }
 
     @Override
-    public boolean check(Player ply, PlayerDeathEvent deathEvent, PlayerRespawnEvent respawnEvent, LoggerInterface logger) {
+    public boolean check(DeathContext ctx) {
+        Player ply = ctx.player();
+
         BetterKeepInventory.instance.debug(ply, "Going to test " + this.placeholderConditions.size() + " placeholder conditions");
 
         for (PlaceholderItem item : this.placeholderConditions) {

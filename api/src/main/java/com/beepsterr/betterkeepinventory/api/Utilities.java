@@ -1,4 +1,4 @@
-package com.beepsterr.betterkeepinventory.Library;
+package com.beepsterr.betterkeepinventory.api;
 
 import org.bukkit.configuration.ConfigurationSection;
 

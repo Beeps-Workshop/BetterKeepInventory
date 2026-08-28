@@ -1,13 +1,10 @@
 package com.beepsterr.betterkeepinventory.Content.Conditions;
 
-import com.beepsterr.betterkeepinventory.Library.NumberRange;
+import com.beepsterr.betterkeepinventory.api.DeathContext;
+import com.beepsterr.betterkeepinventory.api.Types.NumberRange;
 import com.beepsterr.betterkeepinventory.api.Condition;
-import com.beepsterr.betterkeepinventory.api.LoggerInterface;
 import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.Player;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerRespawnEvent;
 
 /**
  * Condition that checks the light level at the death location.
@@ -44,8 +41,10 @@ public class LightLevelCondition implements Condition {
     }
 
     @Override
-    public boolean check(Player ply, PlayerDeathEvent deathEvent, PlayerRespawnEvent respawnEvent, LoggerInterface logger) {
-        Block block = ply.getLocation().getBlock();
+    public boolean check(DeathContext ctx) {
+        // Where they died, not where they are. Reading the live location measured the light at
+        // the spawn point during the respawn phase, for the same death.
+        Block block = ctx.deathLocation().getBlock();
 
         int lightLevel = switch (type) {
             case BLOCK -> block.getLightFromBlocks();

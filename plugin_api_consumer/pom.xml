@@ -8,7 +8,7 @@
     <parent>
         <groupId>com.github.beepsterr</groupId>
         <artifactId>BetterKeepInventory</artifactId>
-        <version>2.3.0</version>
+        <version>3.0.0</version>
     </parent>
 
     <artifactId>plugin_api_consumer</artifactId>
@@ -19,7 +19,7 @@
         <dependency>
             <groupId>com.github.beepsterr</groupId>
             <artifactId>betterkeepinventory-api</artifactId>
-            <version>2.3.0</version>
+            <version>3.0.0</version>
             <scope>provided</scope>
         </dependency>
 
