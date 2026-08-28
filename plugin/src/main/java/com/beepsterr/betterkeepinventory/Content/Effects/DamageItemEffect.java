@@ -106,15 +106,22 @@ public class DamageItemEffect implements Effect {
                 continue;
             };
 
+            if (damageableMeta.isUnbreakable()) {
+                plugin.debug(ply, "Damage skipped due to item being unbreakable: " + item.getType());
+                continue;
+            }
+
             int currentDamageTaken = damageableMeta.getDamage();
-            int maxDurability = item.getType().getMaxDurability();
-            if (maxDurability <= 0) continue; // item can't hold durability (e.g. blocks/food) — skip so we don't tag it or spam "0 damage"
+            int maxDurability = damageableMeta.hasMaxDamage()
+                    ? damageableMeta.getMaxDamage()
+                    : item.getType().getMaxDurability();
+            if (maxDurability <= 0) continue; // not skipping adds nbt tags to items breaking stacking.
             int damageToTake = calculateDamage(rng, currentDamageTaken, maxDurability);
 
             if (damageToTake <= 0) continue;
 
             damageToTake = applyUnbreaking(item, damageToTake);
-            if (damageToTake <= 0) continue; // Unbreaking can reduce damage to 0 — skip so we don't tag the item or spam "0 damage"
+            if (damageToTake <= 0) continue; // Unbreaking can reduce damage to 0
             Map<String, String> replacements = new HashMap<>();
             replacements.put("amount", String.valueOf(damageToTake));
             replacements.put("item", MaterialList.GetName(item));
