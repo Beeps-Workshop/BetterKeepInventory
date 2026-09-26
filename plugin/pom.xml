@@ -99,7 +99,7 @@
                  by placeholderapi, but 2.12.3 no longer provides it, so declare it explicitly. -->
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
-            <version>26.0.2</version>
+            <version>26.1.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
