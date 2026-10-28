@@ -3,8 +3,6 @@ package com.beepsterr.betterkeepinventory.Library;
 import com.beepsterr.betterkeepinventory.BetterKeepInventory;
 import org.bukkit.Bukkit;
 
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import org.bukkit.entity.Player;
 
 import java.io.File;
@@ -61,11 +59,6 @@ public class Debugger {
 
     public void reset() {
         this.messages = new String[MAX_MESSAGES];
-    }
-
-    public String TriggerUpload(){
-        write();
-        return upload();
     }
 
     private String getContent(){
@@ -130,57 +123,22 @@ public class Debugger {
         return false;
     }
 
-    public void write() {
+    public File write() {
 
         String log = getContent();
 
-        File dataFolder = BetterKeepInventory.instance.getDataFolder();
-        if (!dataFolder.exists()) {
-            dataFolder.mkdirs();
+        File dumpFolder = new File(BetterKeepInventory.instance.getDataFolder(), "dumps");
+        if (!dumpFolder.exists()) {
+            dumpFolder.mkdirs();
         }
-        File file = new File(dataFolder, "debugger.log");
+        String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new Date());
+        File file = new File(dumpFolder, timestamp + ".log");
         try (FileWriter writer = new FileWriter(file)) {
             writer.write(log);
         } catch (IOException e) {
             throw new RuntimeException("Failed to write debugger log to file: " + e.getMessage());
         }
-
-    }
-
-    public String upload(){
-        String log = getContent();
-        try {
-            java.net.URL url = new java.net.URL("https://bin.workshop.beepsterr.com/post");
-            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Content-Type", "text/plain; charset=UTF-8");
-            conn.setDoOutput(true);
-            try (java.io.OutputStream os = conn.getOutputStream()) {
-                byte[] input = log.getBytes("UTF-8");
-                os.write(input, 0, input.length);
-            }
-            int code = conn.getResponseCode();
-            if (code == 200 || code == 201) {
-                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), "UTF-8"))) {
-                    JsonObject obj = JsonParser.parseReader(br).getAsJsonObject();
-                    if (obj.has("key")) {
-                        String key = obj.get("key").getAsString();
-                        BetterKeepInventory.getInstance().getLogger().info("Debugger log uploaded: https://bin.lunega.dev/" + key);
-                        return key;
-                    } else {
-                        BetterKeepInventory.getInstance().getLogger().warning("Debugger upload succeeded but response did not contain a bin key.");
-                        throw new RuntimeException("Debug data uploaded, but no key was returned. (Are you on a old version?)");
-                    }
-                }
-            } else {
-                BetterKeepInventory.getInstance().getLogger().warning("Debugger upload failed with HTTP code: " + code);
-                throw new RuntimeException("Debug data upload failed with HTTP code: " + code);
-            }
-        } catch (Exception e) {
-            BetterKeepInventory.getInstance().getLogger().severe("Debugger upload error: " + e.getMessage());
-            throw new RuntimeException("Debug data upload error: " + e.getMessage());
-        }
-
+        return file;
     }
 
 }

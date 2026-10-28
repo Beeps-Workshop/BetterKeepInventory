@@ -4,7 +4,7 @@ main: com.beepsterr.betterkeepinventory.BetterKeepInventory
 api-version: 1.21
 prefix: BetterKeepInventory
 authors: [ BeepSterr ]
-website: leafcat.live
+website: https://workshop.beepsterr.com/bki/?utm_source=plugin&utm_medium=plugin
 description: Customize the KeepInventory behavior on your server with rules and conditions.
 
 softdepend: [Vault,Essentials,PlaceholderAPI]
@@ -62,14 +62,14 @@ permissions:
     default: op
     children:
       betterkeepinventory.command.debug.verbose: true
-      betterkeepinventory.command.debug.upload: true
+      betterkeepinventory.command.debug.dump: true
 
   betterkeepinventory.command.debug.verbose:
     description: Toggle verbose debug output in chat
     default: op
 
-  betterkeepinventory.command.debug.upload:
-    description: Upload a debug report
+  betterkeepinventory.command.debug.dump:
+    description: Write a debug report to the plugin folder
     default: op
 
 commands:

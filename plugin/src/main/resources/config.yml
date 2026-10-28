@@ -1,9 +1,9 @@
 #
 #   BetterKeepInventory By BeepSterr
-#   Version 2.0.0
+#   Version ${project.version}
 #
-#   SpigotMC:         https://www.spigotmc.org/resources/betterkeepinventory.93081/
-#   Documentation:    https://workshop.beepsterr.com/bki/
+#   Modrinth:         https://modrinth.com/plugin/betterkeepinventory
+#   Documentation:    https://workshop.beepsterr.com/bki/?utm_source=plugin&utm_medium=config
 #   GitHub:           https://github.com/Awoo-industries/BetterKeepInventory
 #   Discord:          https://beepsterr.com/discord
 #

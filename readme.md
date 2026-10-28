@@ -2,10 +2,30 @@
 [![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.spiget.org%2Fv2%2Fresources%2F93081&query=downloads&logo=spigotmc&label=Downloads&color=%23ED8106)](https://www.spigotmc.org/resources/betterkeepinventory.93081/)
 [![Discord](https://img.shields.io/discord/850836877924761610?label=BeepSterr's%20Workshop&color=%239191c9)](https://leafcat.live/discord)
 
-Take control of KeepInventory.
-No longer shall your players jump into lava to get home. Weep they shall, for the mercy of their benevolent admins.
+A KeepInventory Plugin for Spigot / Paper / Folia that allows you to take complete control over a player death using a rule-based configuration system.  
+Apply [Damage](https://workshop.beepsterr.com/bki/Rules/Effects/Damage) to items, [Drop](https://workshop.beepsterr.com/bki/Rules/Effects/Drop) them completely or even run [Commands](https://workshop.beepsterr.com/bki/Rules/Effects/Command). All easily toggled with conditions like [Death Cause](https://workshop.beepsterr.com/bki/Rules/Conditions/Cause), [Permissions](https://workshop.beepsterr.com/bki/Rules/Conditions/Permissions) or anything else using [Placeholders](https://workshop.beepsterr.com/bki/Rules/Conditions/Placeholders)
 
-*(This plugin lets take fine grained control over KeepInventory, choosing to drop certain items, damage durability and many more effects)*
+### Rules
+BetterKeepInventory uses a flexible, rule-based configuration system to control what happens when a player dies. Add as many rules as you need to customize item drops, durability damage, XP loss, hunger, and other death effects. Rules can be configured with conditions and nested child rules, allowing you to create complex behavior without writing code.
+Check out the [Example Rules](https://workshop.beepsterr.com/bki/Rules/Examples/Combat%20Tag) to get a feel for all the possibilities!
+```yaml
+    # Example rule structure. For effects, conditions & filters please consult the official documentation at https://workshop.beepsterr.com/bki/
+    rules:
+        example:
+            name: "Example death rule"
+            enabled: true
+            conditions:
+                # Configure when this rule should apply
+                ...
+            effects:
+                # Configure which items should drop or be kept
+                ...
+            children:
+              # Add more rules here to be processed IF the conditions of this rule pass
+              ...
+```
+
+
 
 ## Downloads
 The plugin can be obtained via [Modrinth](https://modrinth.com/plugin/betterkeepinventory)
@@ -47,17 +67,17 @@ The easiest way to get a hold of the API is to use JitPack. Just add your depend
     </repository>
 </repositories>
 
-<depencencies>
+<dependencies>
     <dependency>
         <!-- Keep not that we're using the 'betterkeepinventory-api' artifact -->
         <groupId>com.github.BeepSterr.BetterKeepInventory</groupId>
         <artifactId>betterkeepinventory-api</artifactId>
-        <version>v2.0.0</version>
+        <version>v2.3.5</version>
         <!-- You should not shade the API, but use it as a provided dependency -->
         <!-- If you don't do this, you will not be able to register anything -->
         <scope>provided</scope>
     </dependency>
-</depencencies>
+</dependencies>
 ```
 
 ### Adding a Condition
@@ -73,7 +93,7 @@ public static class AlwaysTrueCondition implements Condition {
     }
 
     @Override
-    public boolean check(Player player, PlayerDeathEvent deathEvent, PlayerRespawnEvent respawnEvent) {
+    public boolean check(Player player, PlayerDeathEvent deathEvent, PlayerRespawnEvent respawnEvent, LoggerInterface logger) {
         return true;
     }
 }
@@ -100,12 +120,12 @@ public static class BroadcastEffect implements Effect {
     }
 
     @Override
-    public void onRespawn(Player player, PlayerRespawnEvent event) {
+    public void onRespawn(Player player, PlayerRespawnEvent event, LoggerInterface logger) {
         // This effect doesn't do anything on respawn (yet)
     }
 
     @Override
-    public void onDeath(Player ply, PlayerDeathEvent event) {
+    public void onDeath(Player ply, PlayerDeathEvent event, LoggerInterface logger) {
         plugin.getServer().broadcastMessage(ply.getName() + " died a gruesome death.");
     }
 }

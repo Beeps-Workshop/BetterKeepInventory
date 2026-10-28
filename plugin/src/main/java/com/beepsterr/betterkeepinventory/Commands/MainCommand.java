@@ -17,6 +17,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import java.io.File;
 import java.util.*;
 
 public class MainCommand implements CommandExecutor, TabCompleter {
@@ -60,7 +61,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
             if(checkPerm(sender, "betterkeepinventory.version")){
 
                 // Update checking
-                if(plugin.versionChecker.channel != VersionChannel.NONE) {
+                if(plugin.versionChecker != null && plugin.versionChecker.channel != VersionChannel.NONE) {
                     boolean isUpdateAvailable = plugin.versionChecker.IsUpdateAvailable();
                     if (!isUpdateAvailable) {
                         sender.sendMessage("" + ChatColor.GREEN + ChatColor.ITALIC + "No updates available.");
@@ -68,7 +69,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
                         String updateURL = switch(plugin.versionChecker.channel) {
                             case SNAPSHOT -> "https://github.com/BeepSterr/BetterKeepInventory/actions/workflows/build_snapshot.yml";
-                            default -> "https://www.spigotmc.org/resources/betterkeepinventory.93081/";
+                            default -> "https://modrinth.com/plugin/betterkeepinventory/versions";
                         };
 
                         TextComponent updateAvailableComponent = new TextComponent(plugin.versionChecker.foundVersion.toString() + " is available for download!");
@@ -108,8 +109,8 @@ public class MainCommand implements CommandExecutor, TabCompleter {
                 }
             }
 
-            SendLink(sender, "SpigotMC", "https://www.spigotmc.org/resources/betterkeepinventory.93081/");
-            SendLink(sender, "Documentation", "https://bki.beepsterr.com");
+            SendLink(sender, "Modrinth", "https://modrinth.com/plugin/betterkeepinventory");
+            SendLink(sender, "Documentation", "https://workshop.beepsterr.com/bki/?utm_source=plugin&utm_medium=command");
             SendLink(sender, "Discord", "https://leafcat.live/discord");
 
             sender.sendMessage("");
@@ -135,10 +136,10 @@ public class MainCommand implements CommandExecutor, TabCompleter {
                 sender.spigot().sendMessage(registryConditionsCommand);
             }
 
-            if(checkPerm(sender, "betterkeepinventory.command.debug.upload")){
-                TextComponent registryEffectsCommand = new TextComponent("/betterki debug upload");
+            if(checkPerm(sender, "betterkeepinventory.command.debug.dump")){
+                TextComponent registryEffectsCommand = new TextComponent("/betterki debug dump");
                 registryEffectsCommand.setColor(ChatColor.AQUA);
-                registryEffectsCommand.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/betterkeepinventory debug upload"));
+                registryEffectsCommand.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/betterkeepinventory debug dump"));
                 sender.spigot().sendMessage(registryEffectsCommand);
             }
 
@@ -298,7 +299,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
         if(args.length > 1){
             return switch (args[1]) {
-                case "upload" -> OnDebugUploadCommand(sender, command, label, args);
+                case "dump" -> OnDebugDumpCommand(sender, command, label, args);
                 case "verbose" -> OnDebugVerboseCommand(sender, command, label, args);
                 default -> {
                     sender.sendMessage(ChatColor.RED + "Unknown command. Use /betterkeepinventory for help.");
@@ -312,33 +313,19 @@ public class MainCommand implements CommandExecutor, TabCompleter {
 
     }
 
-    public boolean OnDebugUploadCommand(CommandSender sender, Command command, String label, String[] args){
+    public boolean OnDebugDumpCommand(CommandSender sender, Command command, String label, String[] args){
 
-        if(!checkPerm(sender, "betterkeepinventory.command.debug.upload")){
+        if(!checkPerm(sender, "betterkeepinventory.command.debug.dump")){
             sender.sendMessage(ChatColor.RED + "You do not have permission to use this command.");
             return true;
         }
 
-        sender.sendMessage(ChatColor.GRAY + "Generating...");
         try{
-            BetterKeepInventory.getInstance().debugger.write();
+            File file = BetterKeepInventory.getInstance().debugger.write();
+            sender.sendMessage(ChatColor.GREEN + "Debug log written to " + file.getPath());
         }catch (RuntimeException e){
             sender.sendMessage(ChatColor.RED + "Error: " + e.getMessage());
-            return true;
         }
-
-        sender.sendMessage(ChatColor.GRAY + "Uploading...");
-        try {
-            String key = BetterKeepInventory.getInstance().debugger.upload();
-            TextComponent textComponent = new TextComponent("Uploaded! https://bin.lunega.dev/" + key + " (click to copy URL)");
-            textComponent.setColor(ChatColor.GREEN);
-            textComponent.setClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, "https://bin.lunega.dev/" + key ));
-            sender.spigot().sendMessage(textComponent);
-        }catch (Exception e){
-            sender.sendMessage(ChatColor.RED + "Error: " + e.getMessage());
-            return true;
-        }
-
 
         return true;
 
@@ -390,7 +377,7 @@ public class MainCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2 && args[0].equalsIgnoreCase("debug")) {
             if (!sender.hasPermission("betterkeepinventory.command.debug")) return Collections.emptyList();
 
-            return List.of("upload", "verbose").stream()
+            return List.of("dump", "verbose").stream()
                     .filter(opt -> opt.startsWith(args[1].toLowerCase()) && sender.hasPermission("betterkeepinventory.command.debug." + opt))
                     .toList();
         }

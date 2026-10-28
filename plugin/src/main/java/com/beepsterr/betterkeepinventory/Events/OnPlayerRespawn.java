@@ -26,7 +26,7 @@ public class OnPlayerRespawn implements Listener {
     public void onPlayerRespawn(PlayerRespawnEvent event) {
 
         Player ply = event.getPlayer();
-        // Match the death handler: full tree only when debug is on (still captured at FINE for uploads).
+        // Match the death handler: full tree only when debug is on (still captured at FINE for the debug dump).
         NestedLogBuilder nlb = new NestedLogBuilder(plugin.config.isDebug() ? Level.INFO : Level.FINE);
 
         nlb.log("Player" + ply.getName() + " (" + ply.getUniqueId() + ") died.");
