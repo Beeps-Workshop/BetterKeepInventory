@@ -72,6 +72,21 @@ class MaterialListTest {
     }
 
     @Test
+    void everythingExceptAGroupKeepsThatGroupOut() {
+        var result = materials("*", "!G:EQUIPMENT");
+        assertTrue(result.contains(Material.DIRT), "non-equipment should be included");
+        assertFalse(result.contains(Material.DIAMOND_SWORD), "equipment should be excluded");
+        assertFalse(result.contains(Material.SHIELD), "equipment should be excluded");
+    }
+
+    @Test
+    void starAfterAnExclusionStartsOver() {
+        // Entries apply in order, and `*` replaces the list, so an exclusion has to come after it.
+        var result = materials("!G:EQUIPMENT", "*");
+        assertTrue(result.contains(Material.DIAMOND_SWORD));
+    }
+
+    @Test
     void starAddsEveryNonLegacyMaterial() {
         var result = materials("*");
         assertTrue(result.contains(Material.DIAMOND));

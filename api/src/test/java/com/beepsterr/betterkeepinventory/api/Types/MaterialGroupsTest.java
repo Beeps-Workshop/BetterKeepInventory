@@ -48,6 +48,29 @@ class MaterialGroupsTest {
         assertTrue(equipment.contains(Material.IRON_PICKAXE));         // tool
     }
 
+    @ParameterizedTest(name = "documented group \"{0}\" is registered")
+    @ValueSource(strings = {"RESOURCE_MISC", "MISC_TOOLS"})
+    void documentedSubGroupsAreRegistered(String group) {
+        assertDoesNotThrow(() -> MaterialGroups.parse(group));
+    }
+
+    @Test
+    void equipmentCoversAllWearableAndHeldGear() throws TypeError {
+        var equipment = MaterialGroups.parse("EQUIPMENT");
+        assertTrue(equipment.contains(Material.SHIELD));
+        assertTrue(equipment.contains(Material.ELYTRA));
+        assertTrue(equipment.contains(Material.TURTLE_HELMET));
+        assertTrue(equipment.contains(Material.SPYGLASS));
+    }
+
+    @ParameterizedTest(name = "\"{0}\" is equipment on servers that have it")
+    @ValueSource(strings = {"MACE", "COPPER_CHESTPLATE", "COPPER_SWORD", "COPPER_PICKAXE", "NETHERITE_SPEAR", "BRUSH"})
+    void newerGearIsEquipment(String name) throws TypeError {
+        Material material = Material.getMaterial(name);
+        assertNotNull(material, name + " should exist on the test server's API");
+        assertTrue(MaterialGroups.parse("EQUIPMENT").contains(material));
+    }
+
     @Test
     void invalidGroupThrows() {
         assertThrows(TypeError.class, () -> MaterialGroups.parse("NOT_A_GROUP"));

@@ -1,6 +1,6 @@
-# BetterKeepInventory 2.0
-[![Dynamic JSON Badge](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fapi.spiget.org%2Fv2%2Fresources%2F93081&query=downloads&logo=spigotmc&label=Downloads&color=%23ED8106)](https://www.spigotmc.org/resources/betterkeepinventory.93081/)
-[![Discord](https://img.shields.io/discord/850836877924761610?label=BeepSterr's%20Workshop&color=%239191c9)](https://leafcat.live/discord)
+# BetterKeepInventory 2
+[![Modrinth Downloads](https://img.shields.io/modrinth/dt/betterkeepinventory?logo=modrinth&label=Downloads&color=%231bd96a)](https://modrinth.com/plugin/betterkeepinventory)
+[![Discord](https://img.shields.io/discord/1468262553598693453?label=Support%20Server&color=%239191c9)](https://leafcat.live/discord)
 
 A KeepInventory Plugin for Spigot / Paper / Folia that allows you to take complete control over a player death using a rule-based configuration system.  
 Apply [Damage](https://workshop.beepsterr.com/bki/Rules/Effects/Damage) to items, [Drop](https://workshop.beepsterr.com/bki/Rules/Effects/Drop) them completely or even run [Commands](https://workshop.beepsterr.com/bki/Rules/Effects/Command). All easily toggled with conditions like [Death Cause](https://workshop.beepsterr.com/bki/Rules/Conditions/Cause), [Permissions](https://workshop.beepsterr.com/bki/Rules/Conditions/Permissions) or anything else using [Placeholders](https://workshop.beepsterr.com/bki/Rules/Conditions/Placeholders)
@@ -18,7 +18,7 @@ Check out the [Example Rules](https://workshop.beepsterr.com/bki/Rules/Examples/
                 # Configure when this rule should apply
                 ...
             effects:
-                # Configure which items should drop or be kept
+                # Configure which effects (like dropping items, stiking lighting) should be used
                 ...
             children:
               # Add more rules here to be processed IF the conditions of this rule pass
@@ -38,7 +38,7 @@ BetterKeepInventory supports the latest 3 major Minecraft versions, and is compi
 | 1.16 and below    | [1.3](https://modrinth.com/plugin/betterkeepinventory/version/1.3)     | 11           |
 | 1.17, 1.18        | [1.6.2](https://modrinth.com/plugin/betterkeepinventory/version/1.6.2) | 16           |
 | 1.19-1.20         | [2.2.0](https://modrinth.com/plugin/betterkeepinventory/version/2.2.0) | 17           |
-| 1.21+             | [Latest](https://modrinth.com/plugin/betterkeepinventory/versions)     | 21           |
+| 1.21.x, 26.x+     | [Latest](https://modrinth.com/plugin/betterkeepinventory/versions)     | 21           |
 
 > [!NOTE]  
 > Older versions can contain bugs that are not present in the latest version. I Recommend always running the latest minecraft version so you can benefit from the most recent plugins. You can always use a plugin like [ViaBackwards](https://www.spigotmc.org/resources/viabackwards.27448/) to allow players on older versions to connect to your server.
