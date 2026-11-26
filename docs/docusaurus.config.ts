@@ -11,7 +11,15 @@ import type * as Preset from '@docusaurus/preset-classic';
 // here) the docs get a plain navbar and footer.
 const shared = process.env.WORKSHOP_SHARED;
 
-let withWorkshop: (config: Config, opts: {projectId?: string}) => Config = (config) => ({
+// The project's own navbar items. The workshop renders them as pixel buttons on the right; standalone
+// they are plain navbar items.
+const right = [
+  {label: 'download', href: 'https://modrinth.com/mod/betterkeepinventory'},
+  {label: 'Modrinth', href: 'https://modrinth.com/mod/betterkeepinventory'},
+  {label: 'CurseForge', href: 'https://www.curseforge.com/minecraft/bukkit-plugins/betterkeepinventory'},
+];
+
+let withWorkshop: (config: Config, opts: {projectId?: string; right?: typeof right}) => Config = (config, opts) => ({
   ...config,
   url: 'https://workshop.beepsterr.com',
   baseUrl: process.env.DOCS_BASE_URL ?? '/',
@@ -19,9 +27,9 @@ let withWorkshop: (config: Config, opts: {projectId?: string}) => Config = (conf
     ...config.themeConfig,
     navbar: {
       title: 'BetterKeepInventory',
-      items: [{type: 'docsVersionDropdown', position: 'right'}],
+      items: [{type: 'docsVersionDropdown', position: 'right'}, ...(opts.right ?? []).map((item) => ({...item, position: 'right' as const}))],
     },
-    footer: {style: 'dark', copyright: `Copyright © ${new Date().getFullYear()} Beep's Workshop.`},
+    footer: {style: 'dark', copyright: `Copyright © ${new Date().getFullYear()} Beeps' Workshop.`},
   } satisfies Preset.ThemeConfig,
 });
 if (shared) {
@@ -40,7 +48,7 @@ const frozen: string[] = JSON.parse(fs.readFileSync(path.join(__dirname, 'versio
 export default withWorkshop(
   {
     // Page titles end in the workshop's name, like the rest of the site.
-    title: "Beep's Workshop",
+    title: "Beeps' Workshop",
     favicon: undefined,
 
     future: {v4: true},
@@ -75,5 +83,5 @@ export default withWorkshop(
       ],
     ],
   },
-  {projectId: 'bki'},
+  {projectId: 'bki', right},
 );
